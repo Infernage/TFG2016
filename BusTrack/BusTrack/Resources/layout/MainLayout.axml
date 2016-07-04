@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    android:id="@+id/FlyOutContent"
+    android:background="#ffffffff"
+    android:theme="@android:style/Theme.Light.NoTitleBar">
+    <View
+        android:layout_width="fill_parent"
+        android:layout_height="1dp"
+        android:id="@+id/view1"
+        android:background="@android:color/holo_blue_light" />
+    <FrameLayout
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/frameLayout1"
+        android:background="@android:color/holo_blue_dark">
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/linearLayout1">
+            <View
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:id="@+id/MenuButton"
+                android:layout_margin="4dp"
+                android:background="@drawable/action_menu" />
+            <TextView
+                android:text="BusTrack"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:layout_width="wrap_content"
+                android:layout_height="fill_parent"
+                android:id="@+id/textView2"
+                android:gravity="center"
+                android:textColor="#fff6f6f6"
+                android:layout_marginLeft="8dp" />
+            <View
+                android:layout_width="0dip"
+                android:layout_height="match_parent"
+                android:id="@+id/view3"
+                android:layout_weight="1" />
+            <Button
+                android:text="Añadir nueva red"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:id="@+id/button1"
+                android:layout_weight="0"
+                android:drawableLeft="@drawable/iconaddnetwork"
+                android:background="@android:color/transparent"
+                android:layout_marginRight="3dp"
+                android:textColor="#fff6f6f6" />
+        </LinearLayout>
+    </FrameLayout>
+    <View
+        android:layout_width="fill_parent"
+        android:layout_height="1dp"
+        android:id="@+id/view2"
+        android:background="@android:color/holo_blue_bright" />
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <TextView
+            android:text="Bienvenido, Usuario"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/textView1"
+            android:textColor="@android:color/holo_blue_dark" />
+        <View
+            android:layout_width="fill_parent"
+            android:layout_height="1dp"
+            android:id="@+id/view1"
+            android:background="@android:color/holo_blue_light"
+            android:layout_marginBottom="10dp" />
+        <TextView
+            android:text="Redes actuales"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/textView2" />
+        <View
+            android:layout_width="fill_parent"
+            android:layout_height="1dp"
+            android:id="@+id/view1"
+            android:background="@android:color/holo_blue_light"
+            android:layout_marginTop="10dp" />
+        <ListView
+            android:minWidth="25px"
+            android:minHeight="25px"
+            android:layout_width="match_parent"
+            android:layout_height="0dip"
+            android:id="@+id/listView1"
+            android:layout_weight="1" />
+    </LinearLayout>
+</LinearLayout>
