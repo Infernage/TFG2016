@@ -18,8 +18,12 @@ namespace BusTrack
         protected override void OnCreate(Bundle savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
+            RequestWindowFeature(WindowFeatures.NoTitle);
+            //ActionBar.SetBackgroundDrawable(new ColorDrawable(Color.LightBlue));
 
-            // Create your application here
+            SetContentView(Resource.Layout.Map);
+
+            MenuInitializer.InitMenu(this);
         }
     }
 }
