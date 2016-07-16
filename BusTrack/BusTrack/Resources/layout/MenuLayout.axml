@@ -45,7 +45,7 @@
             android:layout_width="75dp" />
         <TextView
             android:text="Inicio"
-            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textAppearance="?android:attr/textAppearanceMedium"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:id="@+id/textView2"
@@ -73,7 +73,7 @@
             android:src="@drawable/iconstats" />
         <TextView
             android:text="Estadísticas recientes"
-            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textAppearance="?android:attr/textAppearanceMedium"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:id="@+id/textView3"
@@ -101,7 +101,7 @@
             android:minWidth="50dp" />
         <TextView
             android:text="Ver mapa"
-            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textAppearance="?android:attr/textAppearanceMedium"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:id="@+id/textView4"
@@ -129,7 +129,7 @@
             android:minWidth="50dp" />
         <TextView
             android:text="Opciones"
-            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textAppearance="?android:attr/textAppearanceMedium"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:id="@+id/textView5"
@@ -167,7 +167,7 @@
             android:minWidth="50dp" />
         <TextView
             android:text="Desconectarse"
-            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textAppearance="?android:attr/textAppearanceMedium"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:id="@+id/textView6"

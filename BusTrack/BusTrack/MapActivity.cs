@@ -1,20 +1,19 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
 using Android.App;
-using Android.Content;
+using Android.Gms.Maps;
+using Android.Gms.Maps.Model;
 using Android.OS;
-using Android.Runtime;
 using Android.Views;
-using Android.Widget;
 
 namespace BusTrack
 {
     [Activity(Label = "MapActivity")]
-    public class MapActivity : Activity
+    public class MapActivity : Activity, IOnMapReadyCallback
     {
+        public void OnMapReady(GoogleMap googleMap)
+        {
+            googleMap.MoveCamera(CameraUpdateFactory.NewLatLngZoom(new LatLng(36.7212487, -4.4213463), 15));
+        }
+
         protected override void OnCreate(Bundle savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
@@ -24,6 +23,9 @@ namespace BusTrack
             SetContentView(Resource.Layout.Map);
 
             MenuInitializer.InitMenu(this);
+
+            MapFragment mapFrag = FragmentManager.FindFragmentById<MapFragment>(Resource.Id.map);
+            mapFrag.GetMapAsync(this);
         }
     }
 }

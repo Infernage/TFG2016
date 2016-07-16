@@ -28,7 +28,7 @@
                 android:layout_margin="4dp"
                 android:background="@drawable/action_menu" />
             <TextView
-                android:text="Mapa"
+                android:text="Opciones"
                 android:textAppearance="?android:attr/textAppearanceMedium"
                 android:layout_width="wrap_content"
                 android:layout_height="fill_parent"
@@ -43,9 +43,51 @@
         android:layout_height="1dp"
         android:id="@+id/view2"
         android:background="@android:color/holo_blue_bright" />
-    <fragment
-        android:id="@+id/map"
+    <Button
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        class="com.google.android.gms.maps.MapFragment" />
+        android:layout_height="40dp"
+        android:id="@+id/dataLimit"
+        android:text="Límite de datos guardados en el dispositivo"
+        android:background="@android:color/transparent"
+        android:gravity="center_vertical"
+        android:layout_marginLeft="10dp" />
+    <View
+        android:layout_width="fill_parent"
+        android:layout_height="0.3dp"
+        android:id="@+id/view3"
+        android:background="@android:color/holo_blue_bright" />
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:id="@+id/clearButton"
+        android:text="Eliminar datos del dispositivo"
+        android:background="@android:color/transparent"
+        android:gravity="center_vertical"
+        android:layout_marginLeft="10dp" />
+    <View
+        android:layout_width="fill_parent"
+        android:layout_height="0.3dp"
+        android:id="@+id/view4"
+        android:background="@android:color/holo_blue_bright" />
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:id="@+id/modifyAccount"
+        android:text="Modificar cuenta"
+        android:background="@android:color/transparent"
+        android:gravity="center_vertical"
+        android:layout_marginLeft="10dp" />
+    <View
+        android:layout_width="fill_parent"
+        android:layout_height="0.3dp"
+        android:id="@+id/view5"
+        android:background="@android:color/holo_blue_bright" />
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:id="@+id/deleteAccount"
+        android:text="Borrar cuenta"
+        android:background="@android:color/transparent"
+        android:gravity="center_vertical"
+        android:layout_marginLeft="10dp" />
 </LinearLayout>
