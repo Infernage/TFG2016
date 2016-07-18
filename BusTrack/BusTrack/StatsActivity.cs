@@ -12,7 +12,7 @@ using Android.Widget;
 
 namespace BusTrack
 {
-    [Activity(Label = "StatsActivity")]
+    [Activity(Label = "Estadísticas")]
     public class StatsActivity : Activity
     {
         protected override void OnCreate(Bundle savedInstanceState)

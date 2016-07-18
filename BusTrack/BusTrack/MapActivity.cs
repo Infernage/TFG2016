@@ -6,7 +6,7 @@ using Android.Views;
 
 namespace BusTrack
 {
-    [Activity(Label = "MapActivity")]
+    [Activity(Label = "Mapa")]
     public class MapActivity : Activity, IOnMapReadyCallback
     {
         public void OnMapReady(GoogleMap googleMap)

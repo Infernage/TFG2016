@@ -12,13 +12,12 @@ using Android.Widget;
 
 namespace BusTrack
 {
-    [Activity(Label = "LoginActivity")]
+    [Activity(Label = "BusTrack", Theme = "@style/MainTheme")]
     public class LoginActivity : Activity
     {
         protected override void OnCreate(Bundle savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
-            RequestWindowFeature(WindowFeatures.NoTitle);
 
             SetContentView(Resource.Layout.Login);
 
