@@ -24,6 +24,7 @@ namespace BusTrack.Data
                 lon = value.Item2;
             }
         }
+        [JsonProperty("realmLines")]
         public RealmList<Line> lines { get; }
 
         private float lat { get; set; }

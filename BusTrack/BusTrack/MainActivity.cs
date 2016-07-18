@@ -82,12 +82,13 @@ namespace BusTrack
                             newLine.id = line.id;
                             newLine.name = line.name;
 
-                            // Get all stop with the ID stored in JSON array
-                            var lineStops = from stop in realm.All<Stop>()
-                                            where line.stopIds.Contains(stop.id)
-                                            select stop;
-                            foreach (Stop s in lineStops)
+                            foreach (int id in line.stopIds)
                             {
+                                // Get each stop
+                                Stop s = (from stop in realm.All<Stop>()
+                                          where stop.id == id
+                                          select stop).First();
+
                                 // Add every stop to each line and viceversa
                                 newLine.stops.Add(s);
                                 s.lines.Add(newLine);
