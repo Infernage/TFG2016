@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="ApplicationName">BusTrack</string>
-  <string name="UsernameHint">Username</string>
-  <string name="PasswordHint">Password</string>
+  <string name="UsernameHint">Correo electrónico</string>
+  <string name="PasswordHint">Contraseña</string>
 </resources>

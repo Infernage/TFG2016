@@ -23,7 +23,9 @@
             android:text="Login"
             android:layout_width="100dp"
             android:layout_height="match_parent"
-            android:id="@+id/button1" />
+            android:id="@+id/button1"
+            android:background="@color/holo_light_blue"
+            android:textColor="@color/white" />
         <View
             android:layout_width="0dip"
             android:layout_height="match_parent"
@@ -34,6 +36,8 @@
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:id="@+id/button2"
-            android:layout_weight="0" />
+            android:layout_weight="0"
+            android:background="@android:color/holo_purple"
+            android:textColor="@color/white" />
     </LinearLayout>
 </LinearLayout>
