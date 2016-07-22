@@ -24,14 +24,29 @@ namespace BusTrack.Data
                 lon = value.Item2;
             }
         }
+        [Ignored]
+        public string locationString
+        {
+            get
+            {
+                Tuple<float, float> tuple = location;
+                return tuple.Item1.ToString() + ',' + tuple.Item2.ToString();
+            }
+        }
         [JsonProperty("realmLines")]
         public RealmList<Line> lines { get; }
 
         private float lat { get; set; }
         private float lon { get; set; }
+        /// <summary>
+        /// Ignored in realm
+        /// </summary>
         [JsonProperty("position")]
         [Ignored]
         public string position { get; set; }
+        /// <summary>
+        /// Ignored in realm
+        /// </summary>
         [JsonProperty("lines")]
         [Ignored]
         public List<int> lineIds { get; set; }

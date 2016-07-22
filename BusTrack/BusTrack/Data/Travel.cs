@@ -7,7 +7,7 @@ namespace BusTrack.Data
     {
         [ObjectId]
         public int id { get; set; }
-        public float distance { get; set; }
+        public long distance { get; set; }
         public int time { get; set; }
         public DateTimeOffset date { get; set; }
         public int userId { get; set; }

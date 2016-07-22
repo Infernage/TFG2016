@@ -109,8 +109,11 @@
     <Compile Include="OptionsActivity.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Resources\Resource.Designer.cs" />
+    <Compile Include="Scanner.cs" />
     <Compile Include="StatsActivity.cs" />
+    <Compile Include="Utilities\LocationUtility.cs" />
     <Compile Include="Utilities\Utils.cs" />
+    <Compile Include="Utilities\WifiUtility.cs" />
   </ItemGroup>
   <ItemGroup>
     <AndroidAsset Include="Assets\emt.json" />
