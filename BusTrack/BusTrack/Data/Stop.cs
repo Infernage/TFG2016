@@ -1,3 +1,4 @@
+using Android.Locations;
 using Newtonsoft.Json;
 using Realms;
 using System;
@@ -10,18 +11,21 @@ namespace BusTrack.Data
         [JsonProperty("id")]
         [ObjectId]
         public int id { get; set; }
-
-        public Tuple<float, float> location
+        [Ignored] // Just in case
+        public Location location
         {
             get
             {
-                return new Tuple<float, float>(lat, lon);
+                Location value = new Location("");
+                value.Latitude = lat;
+                value.Longitude = lon;
+                return value;
             }
             set
             {
                 if (value == null) throw new Exception("Location database added is null!");
-                lat = value.Item1;
-                lon = value.Item2;
+                lat = value.Latitude;
+                lon = value.Longitude;
             }
         }
         [Ignored]
@@ -29,15 +33,14 @@ namespace BusTrack.Data
         {
             get
             {
-                Tuple<float, float> tuple = location;
-                return tuple.Item1.ToString() + ',' + tuple.Item2.ToString();
+                return location.Latitude.ToString() + ',' + location.Longitude.ToString();
             }
         }
         [JsonProperty("realmLines")]
         public RealmList<Line> lines { get; }
 
-        private float lat { get; set; }
-        private float lon { get; set; }
+        private double lat { get; set; }
+        private double lon { get; set; }
         /// <summary>
         /// Ignored in realm
         /// </summary>

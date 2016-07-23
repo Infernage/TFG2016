@@ -13,7 +13,6 @@ namespace BusTrack.Data
         [Indexed]
         public string name{ get; set; }
         public RealmList<Bus> buses { get; }
-        public RealmList<Travel> travels { get; }
         [JsonProperty("realmStops")]
         public RealmList<Stop> stops { get; }
         [JsonProperty("stops")]
