@@ -1,4 +1,5 @@
 using Realms;
+using System;
 
 namespace BusTrack.Data
 {
@@ -7,6 +8,7 @@ namespace BusTrack.Data
         [ObjectId]
         public string mac { get; set; }
         public Line line { get; set; }
+        public DateTimeOffset lastRefresh { get; set; }
         public RealmList<Travel> travels { get; }
     }
 }

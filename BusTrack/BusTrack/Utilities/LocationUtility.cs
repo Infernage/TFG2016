@@ -13,7 +13,10 @@ namespace BusTrack.Utilities
         private GoogleApiClient clientLocation;
         private Location last;
         //private AutoResetEvent evt;
-
+        
+        /// <summary>
+        /// Retreives the last known location from GPS/network
+        /// </summary>
         public Location LastLocation
         {
             get
@@ -30,11 +33,17 @@ namespace BusTrack.Utilities
             Connect();
         }
 
+        /// <summary>
+        /// Connects to the GoogleApiClient
+        /// </summary>
         public void Connect()
         {
             if (!clientLocation.IsConnected) clientLocation.Connect();
         }
     
+        /// <summary>
+        /// Disconnects from the GoogleApiClient
+        /// </summary>
         public void Disconnect()
         {
             if (clientLocation.IsConnected)

@@ -77,12 +77,12 @@ namespace BusTrack
 
             modAcc.Click += (o, e) =>
             {
-                // TODO
+                // TODO: Create UI
             };
 
             delAcc.Click += (o, e) =>
             {
-                // TODO
+                // TODO: Create option (Depends on server)
             };
         }
     }
