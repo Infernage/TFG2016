@@ -45,10 +45,6 @@ namespace BusTrack
                         if (current != null)
                         {
                             candidates.Add(busAp, Tuple.Create<Stopwatch, Location>(new Stopwatch(), null));
-                            ISharedPreferencesEditor editor = prefs.Edit();
-                            editor.PutInt("currentTravel", -1);
-                            editor.PutString("currentAp", null);
-                            editor.Apply();
                         }
                         while (true)
                         {
@@ -106,6 +102,12 @@ namespace BusTrack
                                     // Reset variables
                                     busAp = null;
                                     current = null;
+
+                                    // Reset last state
+                                    ISharedPreferencesEditor editor = prefs.Edit();
+                                    editor.PutInt("currentTravel", -1);
+                                    editor.PutString("currentAp", null);
+                                    editor.Apply();
                                 }
                             }
                         }
