@@ -17,6 +17,7 @@ using Android.Locations;
 using Realms;
 using BusTrack.Data;
 using System.Collections.Specialized;
+using Android.Util;
 
 namespace BusTrack
 {
@@ -39,7 +40,9 @@ namespace BusTrack
                     using(Realm realm = Realm.GetInstance(Utils.NAME_PREF))
                     {
                         string busAp = prefs.GetString("currentAp", null);
-                        Travel current = realm.All<Travel>().Where(t => t.id == prefs.GetInt("currentTravel", -1)).FirstOrDefault();
+                        int travelId = prefs.GetInt("currentTravel", -1);
+                        var results = realm.All<Travel>().Where(t => t.id == travelId);
+                        Travel current = results.Count() > 0 ? results.First() : null;
                         Dictionary<string, Tuple<Stopwatch, Location>> candidates = new Dictionary<string, Tuple<Stopwatch, Location>>();
 
                         if (current != null)
@@ -63,6 +66,8 @@ namespace BusTrack
                                 {
                                     busAp = current.bus.mac;
 
+                                    Log.Debug(Utils.NAME_PREF, "Current bus is " + busAp);
+
                                     // Store last state
                                     ISharedPreferencesEditor editor = prefs.Edit();
                                     editor.PutInt("currentTravel", current.id);
@@ -75,16 +80,17 @@ namespace BusTrack
                             }
                             else
                             {
-                                Location end;
+                                Location end = null;
 
                                 // Check if user stops the current travel
-                                if (ScanDown(wifi, location, busAp, candidates, out end) && candidates[busAp].Item1.Elapsed.Seconds >= 3)
+                                if (ScanDown(wifi, location, busAp, candidates, out end))
                                 {
                                     // User finished travel
                                     candidates[busAp].Item1.Reset();
                                     candidates.Clear();
                                     Stop nearest = FindNearestStop(end, realm);
                                     long distance = Utils.GetDistance(current.init, nearest);
+                                    Log.Debug(Utils.NAME_PREF, "Travel finished");
                                     realm.Write(() =>
                                     {
                                         current.time = DateTimeOffset.Now.Subtract(current.date).Seconds;
@@ -110,6 +116,7 @@ namespace BusTrack
                                     editor.Apply();
                                 }
                             }
+                            realm.Refresh();
                         }
                     }
                 } catch (ThreadInterruptedException e)
@@ -163,8 +170,9 @@ namespace BusTrack
                 // No stored stop! Create new one
                 realm.Write(() =>
                 {
-                    nearest = realm.CreateObject<Stop>();
-                    nearest.location = current;
+                    var stop  = realm.CreateObject<Stop>();
+                    stop.location = current;
+                    nearest = stop;
                 });
             }
             else nearest = nearestStops[0] as Stop;
@@ -213,6 +221,8 @@ namespace BusTrack
                 candidates[busAp].Item1.Start();
                 end = location.LastLocation;
             }
+
+            if (notFound && candidates[busAp].Item1.Elapsed.Seconds >= 3) end = location.LastLocation;
 
             travelEnd = end;
             return notFound;
@@ -273,16 +283,21 @@ namespace BusTrack
                     Location location = candidates[cand].Item2;
                     candidates[cand].Item1.Reset();
 
+                    // Search stop
+                    Stop nearest = FindNearestStop(location, realm);
+
+                    // Create travel object
                     realm.Write(() =>
                     {
                         // Get current bus
                         Bus currentBus;
-                        var buses = realm.All<Bus>().Where(b => b.mac.Equals(busAp));
+                        string ap = busAp;
+                        var buses = realm.All<Bus>().Where(b => b.mac == ap);
                         if (buses.Count() == 0)
                         {
                             // Not added yet to DB!
                             currentBus = realm.CreateObject<Bus>();
-                            currentBus.mac = busAp;
+                            currentBus.mac = ap;
                         }
                         else currentBus = buses.First();
 
@@ -290,11 +305,9 @@ namespace BusTrack
                         current = realm.CreateObject<Travel>();
                         current.date = DateTimeOffset.Now;
                         current.bus = currentBus;
+                        current.init = nearest;
                         currentBus.travels.Add(current);
                     });
-
-                    // Search stop
-                    Stop nearest = FindNearestStop(location, realm);
 
                     // Search which line owns the stop
                     var lines = nearest.lines;
@@ -309,6 +322,8 @@ namespace BusTrack
                         builder.SetContentTitle("Línea de bus no detectada");
 
                         builder.SetDefaults(NotificationDefaults.Sound | NotificationDefaults.Vibrate);
+                        builder.SetAutoCancel(true);
+                        builder.SetPriority((int)NotificationPriority.Max);
 
                         Intent opts = new Intent(Application.Context, typeof(MainActivity));
                         opts.PutExtra("travel", current.id);
@@ -331,7 +346,7 @@ namespace BusTrack
                         }
 
                         Notification notif = builder.Build();
-                        notificator.Notify(1, notif);
+                        notificator.Notify("updateTravel", current.id, notif);
                     }
                     else
                     {
@@ -346,6 +361,7 @@ namespace BusTrack
                                 current.bus.lastRefresh = DateTimeOffset.Now;
                             }
                         });
+                        // TODO: Notify user if current line is correct (?)
                     }
                 }
             }

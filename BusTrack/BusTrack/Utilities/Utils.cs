@@ -34,8 +34,12 @@ namespace BusTrack.Utilities
             WebClient client = new WebClient();
             string json = client.DownloadString(apiUrl);
             client.Dispose();
-            var parsed = JObject.Parse(json)["rows"].Children().First()["elements"].Children().First()["distance"]["value"];
-            return parsed.Value<long>();
+            var parsed = JObject.Parse(json)["rows"].Children().First()["elements"].Children().First();
+            long distance = 0;
+            if (parsed.Contains("distance")){
+                distance = parsed["distance"]["value"].Value<long>();
+            }
+            return distance;
         }
     }
 

@@ -45,7 +45,7 @@
                 android:text="Añadir nueva red"
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
-                android:id="@+id/button1"
+                android:id="@+id/addNetwork"
                 android:layout_weight="0"
                 android:drawableLeft="@drawable/iconaddnetwork"
                 android:background="@android:color/transparent"
