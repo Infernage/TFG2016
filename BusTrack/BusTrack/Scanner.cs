@@ -100,7 +100,7 @@ namespace BusTrack
                                         // If we know the line, check if it's necessary to update line and stop
                                         if (current.line != null && !nearest.lines.Contains(current.line))
                                         {
-                                            nearest.lines.Add(current.line);
+                                            if (!nearest.lines.Contains(current.line)) nearest.lines.Add(current.line);
                                             if (!current.line.stops.Contains(nearest)) current.line.stops.Add(nearest);
                                         }
                                     });
@@ -303,6 +303,7 @@ namespace BusTrack
 
                         // Create new travel
                         current = realm.CreateObject<Travel>();
+                        // TODO: Insert user id into travel object
                         current.date = DateTimeOffset.Now;
                         current.bus = currentBus;
                         current.init = nearest;

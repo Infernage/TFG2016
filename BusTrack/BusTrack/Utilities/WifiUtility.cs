@@ -14,6 +14,7 @@ namespace BusTrack.Utilities
         private NotificationManager notificator;
         private List<ScanResult> results = new List<ScanResult>();
         private AutoResetEvent handle;
+        private Context mContext;
 
         /// <summary>
         /// Gets the ScanResult list from the last scan
@@ -35,6 +36,7 @@ namespace BusTrack.Utilities
         /// <param name="context">Context activity</param>
         public WifiUtility(Context context, AutoResetEvent evt)
         {
+            mContext = context;
             handle = evt;
             wifi = context.GetSystemService(Context.WifiService) as WifiManager;
             connectivity = context.GetSystemService(Context.ConnectivityService) as ConnectivityManager;
@@ -48,16 +50,29 @@ namespace BusTrack.Utilities
         /// </summary>
         public void StartScan()
         {
-            wifi.StartScan();
+            if (CheckState()) wifi.StartScan();
         }
 
         public override void OnReceive(Context context, Intent intent)
         {
             // Check if WiFi is enabled
+            if (!CheckState()) return;
+
+            // Avoid concurrency issues!
+            lock (results)
+            {
+                results.Clear(); // Clear last results and add new ones
+                results.AddRange(wifi.ScanResults);
+                handle.Set();
+            }
+        }
+
+        private bool CheckState()
+        {
             if (!connectivity.ActiveNetworkInfo.IsConnected)
             {
                 // Send notification to the user
-                Notification.Builder builder = new Notification.Builder(context);
+                Notification.Builder builder = new Notification.Builder(mContext);
                 builder.SetSmallIcon(Android.Resource.Drawable.IcDialogAlert);
 
                 builder.SetContentText("Por favor, vuelve a activar el WiFi.");
@@ -66,7 +81,7 @@ namespace BusTrack.Utilities
                 builder.SetDefaults(NotificationDefaults.Sound | NotificationDefaults.Vibrate);
 
                 Intent opts = new Intent(Android.Provider.Settings.ActionWifiSettings);
-                PendingIntent wifiOpts = PendingIntent.GetActivity(context, 0, opts, PendingIntentFlags.OneShot);
+                PendingIntent wifiOpts = PendingIntent.GetActivity(mContext, 0, opts, PendingIntentFlags.OneShot);
                 builder.SetContentIntent(wifiOpts);
 
                 if ((int)Android.OS.Build.VERSION.SdkInt >= 21)
@@ -77,16 +92,9 @@ namespace BusTrack.Utilities
 
                 Notification notif = builder.Build();
                 notificator.Notify(0, notif);
-                return;
+                return false;
             }
-
-            // Avoid concurrency issues!
-            lock (results)
-            {
-                results.Clear(); // Clear last results and add new ones
-                results.AddRange(wifi.ScanResults);
-                handle.Set();
-            }
+            else return true;
         }
     }
 }

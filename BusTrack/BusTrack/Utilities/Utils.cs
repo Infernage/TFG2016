@@ -25,6 +25,8 @@ namespace BusTrack.Utilities
         public static readonly string NAME_LCHOOSER = "LineChooser";
         public static readonly string NAME_LCREATOR = "LineCreator";
 
+        public static readonly float POLLUTION_CAR = 119F, POLLUTION_BUS = 104F, POLLUTION_BUS_E = 18.6F;
+
         private static readonly string DISTANCE_MATRIX = 
             "https://maps.googleapis.com/maps/api/distancematrix/json?key=AIzaSyDVZGmOKBOdXIClT1ArDYuK3b3cGHZ6LJA&origins=<->origin<->&destinations=<->destination<->&mode=transit&transit_mode=bus";
 

@@ -348,16 +348,17 @@ namespace BusTrack
 
                         if (t.init != null)
                         {
-                            t.init.lines.Add(line);
-                            line.stops.Add(t.init);
+                            if (!t.init.lines.Contains(line)) t.init.lines.Add(line);
+                            if (!line.stops.Contains(t.init)) line.stops.Add(t.init);
                         }
 
                         if (t.end != null)
                         {
-                            t.end.lines.Add(line);
-                            line.stops.Add(t.end);
+                            if (!t.end.lines.Contains(line)) t.end.lines.Add(line);
+                            if (!line.stops.Contains(t.end)) line.stops.Add(t.end);
                         }
                     });
+                    realm.Dispose();
                     dialog.Dismiss();
                     activity.Finish();
                 }
@@ -438,6 +439,7 @@ namespace BusTrack
             list.Add(value);
             ISharedPreferencesEditor edit = prefs.Edit();
             edit.PutStringSet(Utils.PREF_NETWORKS, list);
+            edit.Apply();
             context.RunOnUiThread(() => NotifyDataSetChanged());
         }
     }

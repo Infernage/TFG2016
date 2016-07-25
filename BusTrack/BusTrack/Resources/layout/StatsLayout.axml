@@ -43,10 +43,10 @@
         android:layout_height="1dp"
         android:id="@+id/view2"
         android:background="@android:color/holo_blue_bright" />
-    <GridView
-        android:minWidth="25px"
-        android:minHeight="25px"
+    <TableLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/gridView1" />
+        android:id="@+id/tableLayout1"
+        android:minWidth="25px"
+        android:minHeight="25px" />
 </LinearLayout>
