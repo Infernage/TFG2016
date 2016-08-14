@@ -1,15 +1,21 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
-<resources>
-  <style name="MainTheme" parent="android:Theme.Holo.Light">
+<resources xmlns:tools="http://schemas.android.com/tools" xmlns:android="http://schemas.android.com/apk/res/android">
+  <style name="MainTheme" parent="Theme.AppCompat.Light.DarkActionBar">
     <item name="android:actionBarStyle">@style/ActionBarTheme</item>
+    <item name="actionBarStyle">@style/ActionBarTheme</item>
+    <item name="colorPrimary">@color/holo_light_blue</item>
+    <item name="colorPrimaryDark">@color/holo_dark_blue</item>
   </style>
-  <style name="ActionBarTheme" parent="android:Widget.Holo.Light.ActionBar">
+  <style name="ActionBarTheme" parent="Widget.AppCompat.Light.ActionBar">
     <item name="android:background">@color/holo_light_blue</item>
     <item name="android:titleTextStyle">@style/ActionBarThemeText</item>
     <item name="android:displayOptions">showTitle</item>
+    <item name="background">@color/holo_light_blue</item>
+    <item name="titleTextStyle">@style/ActionBarThemeText</item>
+    <item name="displayOptions">showTitle</item>
   </style>
 
-  <style name="ActionBarThemeText" parent="@android:TextAppearance.Holo.Widget.ActionBar.Title">
+  <style name="ActionBarThemeText" parent="TextAppearance.AppCompat.Widget.ActionBar.Title">
     <item name="android:textColor">@color/white</item>
   </style>
 </resources>
