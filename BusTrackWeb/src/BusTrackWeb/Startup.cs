@@ -1,17 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Linq;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
 using System.IO;
 using Newtonsoft.Json.Linq;
 using NpgsqlTypes;
 using BusTrackWeb.Models;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using BusTrackWeb.TokenProvider;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
+using System;
+using System.Threading;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Cryptography;
 
 namespace BusTrackWeb
 {
@@ -30,6 +35,12 @@ namespace BusTrackWeb
                 builder.AddApplicationInsightsSettings(developerMode: true);
             }
 
+            // Use a daily task to clear access token black list
+            Timer timer = new Timer(x =>
+            {
+                OAuthTokenProvider.BlackList.Clear();
+            }, null, (new TimeSpan(24, 0, 0) - DateTime.Now.TimeOfDay), TimeSpan.FromHours(24));
+
             builder.AddEnvironmentVariables();
             Configuration = builder.Build();
         }
@@ -42,17 +53,88 @@ namespace BusTrackWeb
             // Add framework services.
             services.AddApplicationInsightsTelemetry(Configuration);
 
-            services.AddMvc();
+            services.AddOptions();
+
+            services.AddMvc( config =>
+            {
+                var policy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+                config.Filters.Add(new AuthorizeFilter(policy));
+            });
+
+            services.AddAuthorization();
 
             services.AddEntityFrameworkNpgsql();
-            //services.AddDbContext<tfgContext>();
+
+            var jwtOpts = Configuration.GetSection(nameof(OAuthOptions));
+            services.Configure<OAuthOptions>(options =>
+            {
+                options.Issuer = jwtOpts[nameof(OAuthOptions.Issuer)];
+                options.Audience = jwtOpts[nameof(OAuthOptions.Audience)];
+                options.SigningCredentials = new SigningCredentials(signKey, SecurityAlgorithms.HmacSha256);
+            });
         }
+
+        private static readonly string key = "tfgBusTrackWebRestFUL";
+        private readonly SymmetricSecurityKey signKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
+
+            // Configure automatic validator
+            var jwtSettOpts = Configuration.GetSection(nameof(OAuthOptions));
+            // Parameters for custom signature validator
+            var innerTokenParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = jwtSettOpts[nameof(OAuthOptions.Issuer)],
+
+                ValidateAudience = true,
+                ValidAudience = jwtSettOpts[nameof(OAuthOptions.Audience)],
+
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = signKey,
+
+                RequireExpirationTime = true,
+                ValidateLifetime = true,
+
+                ClockSkew = TimeSpan.Zero
+            };
+            var tokenParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = jwtSettOpts[nameof(OAuthOptions.Issuer)],
+
+                ValidateAudience = true,
+                ValidAudience = jwtSettOpts[nameof(OAuthOptions.Audience)],
+
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = signKey,
+
+                RequireExpirationTime = true,
+                ValidateLifetime = true,
+
+                ClockSkew = TimeSpan.Zero,
+                SignatureValidator = (token, parameters) =>
+                {
+                    if (OAuthTokenProvider.BlackList.Contains(token)) return null;
+
+                    var handler = new JwtSecurityTokenHandler();
+                    SecurityToken sToken;
+                    handler.ValidateToken(token, innerTokenParameters, out sToken);
+
+                    return sToken;
+                }
+            };
+
+            app.UseJwtBearerAuthentication(new JwtBearerOptions
+            {
+                AutomaticAuthenticate = true,
+                AutomaticChallenge = true,
+                TokenValidationParameters = tokenParameters
+            });
 
             app.UseApplicationInsightsRequestTelemetry();
 
@@ -66,7 +148,7 @@ namespace BusTrackWeb
                 if (context.Bus.Any() || context.Line.Any() || context.Stop.Any() || context.Travel.Any() || context.User.Any()) return; // Already seeded
 
                 string json;
-                using (StreamReader sr = File.OpenText(env.ContentRootPath + Path.DirectorySeparatorChar + "Models" + Path.DirectorySeparatorChar + "emt.json"))
+                using (StreamReader sr = File.OpenText(Path.Combine(env.ContentRootPath, "Models", "emt.json")))
                 {
                     json = sr.ReadToEnd();
                 }

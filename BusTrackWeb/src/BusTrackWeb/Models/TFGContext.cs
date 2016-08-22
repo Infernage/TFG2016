@@ -18,6 +18,10 @@ namespace BusTrackWeb.Models
             // idTravel
             modelBuilder.Entity<Travel>().HasKey(t => new { t.id, t.lineId, t.initId, t.busId });
             modelBuilder.Entity<Travel>().Property(t => t.id).ValueGeneratedOnAdd();
+
+            // idUserToken
+            modelBuilder.Entity<UserToken>().HasKey(t => new { t.id, t.userId });
+            modelBuilder.Entity<UserToken>().Property(t => t.id).ValueGeneratedOnAdd();
         }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

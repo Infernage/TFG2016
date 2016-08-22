@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Builder;
+using System.Security.Cryptography.X509Certificates;
 
 namespace BusTrackWeb
 {
@@ -13,10 +11,13 @@ namespace BusTrackWeb
         public static void Main(string[] args)
         {
             var host = new WebHostBuilder()
-                .UseKestrel()
+                .UseKestrel(options =>
+                {
+                    options.UseHttps(new X509Certificate2(ResourceManager.GetResourceLocation("cert.pfx")));
+                })
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseIISIntegration()
-                .UseStartup<Startup>()
+                .UseStartup<Startup>().UseUrls("https://localhost", "https://192.168.1.140", "http://localhost", "http://192.168.1.140")
                 .Build();
 
             host.Run();
