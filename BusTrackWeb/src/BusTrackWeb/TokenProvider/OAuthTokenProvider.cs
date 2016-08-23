@@ -8,15 +8,13 @@ using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 using System.Security.Principal;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
-using System.Text;
-using System.Security.Cryptography;
-using Microsoft.IdentityModel.Tokens;
 
 namespace BusTrackWeb.TokenProvider
 {
     class OAuthTokenProvider
     {
-        private static long ToUnixEpochDate(DateTime date) => (long)Math.Round((date.ToUniversalTime() - new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero)).TotalSeconds);
+        internal static long ToUnixEpochDate(DateTime date) => (long)Math.Round((date.ToUniversalTime() - new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero)).TotalSeconds);
+        internal static DateTime FromUnixEpochDate(long date) => new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(date);
         internal static ConcurrentStack<string> BlackList = new ConcurrentStack<string>();
         
         /// <summary>
@@ -25,6 +23,7 @@ namespace BusTrackWeb.TokenProvider
         /// <param name="token">The token to be revoked.</param>
         internal async static Task Revoke(string token)
         {
+            if (token == null) return;
             // GUID length is always 32!
             if (token.Length == 32)
             {
@@ -78,6 +77,7 @@ namespace BusTrackWeb.TokenProvider
                 if (!query.Any()) return Task.FromResult<object>(null);
 
                 User user = query.First();
+                if (user.Token.exp - DateTime.UtcNow <= TimeSpan.Zero) return Task.FromResult<object>(null);
                 string encoded = await GenerateJWT(user.email, options);
                 return new
                 {
@@ -172,6 +172,7 @@ namespace BusTrackWeb.TokenProvider
                 string sHash = u.hash.Split(':')[1];
                 string hash = passHashed ? password : Convert.ToBase64String(KeyDerivation.Pbkdf2(password, salt, KeyDerivationPrf.HMACSHA512, 10000, 512 / 8));
                 if (!hash.Equals(sHash)) goto invalid;
+                if (u.resetPass) u.resetPass = false; // User logged in, no need to reset pass
 
                 // We are authenticating with user/password, generate new UserToken!
                 UserToken token = new UserToken

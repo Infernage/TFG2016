@@ -41,6 +41,8 @@ namespace BusTrackWeb.Controllers
         [AllowAnonymous]
         public async Task<ActionResult> Generate([FromForm] string username, [FromForm] string password)
         {
+            if (!ModelState.IsValid) return BadRequest("Validation error");
+
             var response = await OAuthTokenProvider.GenerateToken(username, password, _options);
             if (response == null)
             {
@@ -56,6 +58,7 @@ namespace BusTrackWeb.Controllers
         [AllowAnonymous]
         public ActionResult Register([FromForm] string name, [FromForm] string email, [FromForm] string password)
         {
+            if (!ModelState.IsValid) return BadRequest("Validation error");
             if (name == null || email == null || password == null) return BadRequest("All credentials must be filled");
 
             using (var context = new TFGContext())
@@ -85,11 +88,12 @@ namespace BusTrackWeb.Controllers
 
                 // Generate email token
                 string code;
+                long validTo = OAuthTokenProvider.ToUnixEpochDate(DateTime.UtcNow.AddDays(1));
                 using (var hmac = new HMACSHA256(salt))
                 {
-                    code = Base64UrlEncoder.Encode(hmac.ComputeHash(Encoding.UTF8.GetBytes(string.Concat(user.id, user.email, user.name))));
+                    code = Base64UrlEncoder.Encode(hmac.ComputeHash(Encoding.UTF8.GetBytes(string.Concat(user.id, user.email, user.name, validTo))));
                 }
-                var url = Url.Action("Confirm", "Account", new { userId = user.id, code = code }, protocol: HttpContext.Request.Scheme);
+                var url = Url.Action("Confirm", "Account", new { userId = user.id, code = code, exp = validTo }, protocol: HttpContext.Request.Scheme);
 
                 // Send email
                 var msg = new MimeMessage();
@@ -119,6 +123,7 @@ namespace BusTrackWeb.Controllers
         [AllowAnonymous]
         public async Task<ActionResult> Refresh([FromForm] string token)
         {
+            if (!ModelState.IsValid) return BadRequest("Validation error");
             // Refresh token is always 32 byte length!
             if (token.Length != 32) return BadRequest("Invalid refresh token");
 

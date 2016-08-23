@@ -19,6 +19,7 @@ namespace BusTrackWeb.Models
         public string email { get; set; }
         public string hash { get; set; }
         public bool confirmed { get; set; }
+        public bool resetPass { get; set; }
 
         [InverseProperty("User")]
         public ICollection<Travel> Travels { get; set; }

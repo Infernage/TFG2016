@@ -142,6 +142,8 @@ namespace BusTrackWeb
 
             app.UseMvc();
 
+            app.UseStaticFiles();
+
             // Add a seed
             using (var context = new TFGContext())
             {
