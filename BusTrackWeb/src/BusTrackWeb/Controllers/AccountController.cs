@@ -38,6 +38,7 @@ namespace BusTrackWeb.Controllers
             };
         }
 
+        #region Anonymous access
         [HttpGet]
         [AllowAnonymous]
         public async Task<ActionResult> Confirm([FromQuery] long userId, [FromQuery] string code, [FromQuery] long exp)
@@ -171,6 +172,91 @@ namespace BusTrackWeb.Controllers
                     return View();
                 }
             }
+        }
+        #endregion Anonymous access
+
+        [HttpPost]
+        [Authorize]
+        public ActionResult ChangeName([FromForm] string newName, [FromForm] string sig, [FromForm] long id)
+        {
+            using (var context = new TFGContext())
+            {
+                User user = GetUser(id, context);
+                if (user == null) return BadRequest("Non existent user");
+                if (!CheckSignature(sig, user, context)) return BadRequest("Bad signature"); // Check password signature before change anything
+                user.name = newName;
+                context.SaveChanges();
+            }
+            return Ok();
+        }
+
+        [HttpPost]
+        [Authorize]
+        public ActionResult ChangeEmail([FromForm] string email, [FromForm] string sig, [FromForm] long id)
+        {
+            using (var context = new TFGContext())
+            {
+                User user = GetUser(id, context);
+                if (user == null) return BadRequest("Non existent user");
+                if (!CheckSignature(sig, user, context)) return BadRequest("Bad signature"); // Check password signature before change anything
+                user.email = email;
+                context.SaveChanges();
+            }
+            return Ok();
+        }
+
+        [HttpPost]
+        [Authorize]
+        public ActionResult ChangePassword([FromForm] string password, [FromForm] string sig, [FromForm] long id)
+        {
+            using (var context = new TFGContext())
+            {
+                User user = GetUser(id, context);
+                if (user == null) return BadRequest("Non existent user");
+                if (!CheckSignature(sig, user, context)) return BadRequest("Bad signature"); // Check password signature before change anything
+                string salt = user.hash.Split(':')[0];
+                user.hash = new StringBuilder(salt).Append(':').Append(PerformHash(salt, password)).ToString(); // Save hash with this scheme-> salt:hash
+                context.SaveChanges();
+            }
+            return Ok();
+        }
+
+        /// <summary>
+        /// Checks if the given password signature is correct or not.
+        /// </summary>
+        /// <param name="signature">The password signature.</param>
+        /// <param name="user">The User object in the DB.</param>
+        /// <param name="context">The DB context.</param>
+        /// <returns>True if the signature is valid or false in otherwise.</returns>
+        private bool CheckSignature(string signature, User user, TFGContext context)
+        {
+            string hash = PerformHash(user.hash.Split(':')[0], signature);
+            string sHash = user.hash.Split(':')[1];
+            return hash.Equals(sHash);
+        }
+
+        /// <summary>
+        /// Performs a hash with a key derivation HMAC SHA512.
+        /// </summary>
+        /// <param name="salt">The salt to apply.</param>
+        /// <param name="password">The password to hash.</param>
+        /// <returns>The hashed password.</returns>
+        private string PerformHash(string salt, string password)
+        {
+            byte[] bSalt = Convert.FromBase64String(salt);
+            return Convert.ToBase64String(KeyDerivation.Pbkdf2(password, bSalt, KeyDerivationPrf.HMACSHA512, 10000, 512 / 8));
+        }
+
+        /// <summary>
+        /// Gets a User object through its ID. 
+        /// </summary>
+        /// <param name="id">The user ID.</param>
+        /// <param name="context">The DB context.</param>
+        /// <returns>The User object or null if the ID doesn't exist.</returns>
+        private User GetUser(long id, TFGContext context)
+        {
+            var query = from u in context.User where u.id == id select u;
+            return query.Any() ? query.First() : null;
         }
     }
 }
