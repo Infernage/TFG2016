@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
@@ -15,6 +14,7 @@ using Microsoft.Extensions.Options;
 using MimeKit;
 using MailKit.Net.Smtp;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+using Microsoft.EntityFrameworkCore;
 
 namespace BusTrackWeb.Controllers
 {
@@ -221,6 +221,123 @@ namespace BusTrackWeb.Controllers
             return Ok();
         }
 
+        [HttpPost]
+        [Authorize]
+        public ActionResult Delete([FromForm] string sig, [FromForm] long id)
+        {
+            using (var context = new TFGContext())
+            {
+                User user = GetUser(id, context);
+                if (user == null) return BadRequest("Non existent user");
+                if (!CheckSignature(sig, user, context)) return BadRequest("Bad signature"); // Check password signature before change anything
+                context.Remove(user);
+                context.SaveChanges();
+            }
+            return Ok();
+        }
+
+        [HttpPost]
+        [Authorize]
+        public async Task<ActionResult> GetStatistics([FromForm] string sig, [FromForm] long id)
+        {
+            using (var context = new TFGContext())
+            {
+                User user = GetUser(id, context);
+                if (user == null) return BadRequest("Non existent user");
+                if (!CheckSignature(sig, user, context)) return BadRequest("Bad signature"); // Check password signature before doing anything
+            }
+
+            // Since entity framework DBcontext is not thread-safe, we have to create each one in the threads
+            Task<int> totalTravelsTask = Task.Factory.StartNew(() =>
+            {
+                // Total travels
+                using (var context = new TFGContext())
+                {
+                    User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
+                    return user.Travels.Count;
+                }
+            });
+            Task<double> travelsDayTask = Task.Factory.StartNew(() =>
+            {
+                // Travels by day
+                return new Statistics().MapReduceTravelsByDay(id);
+            });
+            Task<long> mostUsedLineTask = Task.Factory.StartNew(() =>
+            {
+                // Most used line
+                using (var context = new TFGContext())
+                {
+                    User user = context.User.Include(u => u.Travels).ThenInclude(t => t.Line).Where(u => u.id == id).First();
+                    var query = user.Travels.Where(t => t.Line != null).GroupBy(t => t.lineId).OrderByDescending(l => l.Count());
+                    return query.Any() ? query.First().Key : 0L;
+                }
+            });
+            Task<double> averageDurationTask = Task.Factory.StartNew(() =>
+            {
+                // Average travel duration
+                using (var context = new TFGContext())
+                {
+                    User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
+                    return user.Travels.Select(t => t.time).Average();
+                }
+            });
+            Task<int> longestDurationTask = Task.Factory.StartNew(() =>
+            {
+                // Longest travel duration
+                using (var context = new TFGContext())
+                {
+                    User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
+                    return user.Travels.Select(t => t.time).Max();
+                }
+            });
+            Task<double> pollutionBusTask = Task.Factory.StartNew(() =>
+            {
+                // Saved pollution with a normal bus
+                using (var context = new TFGContext())
+                {
+                    User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
+                    double sub = Statistics.POLLUTION_CAR - Statistics.POLLUTION_BUS;
+                    return user.Travels.Where(t => t.distance != 0).Select(t => t.distance).Aggregate(0D, (a, b) => a + (b - sub));
+                }
+            });
+            Task<double> pollutionEBusTask = Task.Factory.StartNew(() =>
+            {
+                // Saved pollution with an electrical bus
+                using (var context = new TFGContext())
+                {
+                    User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
+                    double sub = Statistics.POLLUTION_CAR - Statistics.POLLUTION_BUS_E;
+                    return user.Travels.Where(t => t.distance != 0).Select(t => t.distance).Aggregate(0D, (a, b) => a + (b - sub));
+                }
+            });
+
+            // Wait for all tasks
+            await Task.WhenAll(totalTravelsTask, travelsDayTask, mostUsedLineTask, averageDurationTask, longestDurationTask, pollutionBusTask, pollutionEBusTask);
+
+            // Create JSON object
+            var json = new
+            {
+                totalTravels = totalTravelsTask.Result,
+                travelsByDay = travelsDayTask.Result,
+                mostUsedLine = mostUsedLineTask.Result,
+                averageDuration = averageDurationTask.Result,
+                longestDuration = longestDurationTask.Result,
+                pollutionBus = pollutionBusTask.Result,
+                pollutionElectricBus = pollutionEBusTask
+            };
+            return new OkObjectResult(JsonConvert.SerializeObject(json, _serializer));
+        }
+
+        [HttpPost]
+        [Authorize]
+        public ActionResult Sync([FromForm] string sig, [FromForm] long id, [FromForm] string obj)
+        {
+
+            return Ok();
+        }
+
+        #region Helpers methods
+
         /// <summary>
         /// Checks if the given password signature is correct or not.
         /// </summary>
@@ -258,5 +375,7 @@ namespace BusTrackWeb.Controllers
             var query = from u in context.User where u.id == id select u;
             return query.Any() ? query.First() : null;
         }
+
+        #endregion Helpers Methods
     }
 }

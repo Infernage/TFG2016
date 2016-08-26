@@ -117,7 +117,8 @@ namespace BusTrackWeb.TokenProvider
                 token_type = "Bearer",
                 access_token = encoded,
                 expires_in = (int)options.ValidFor.TotalSeconds,
-                refresh_token = identity.FindFirst("refreshToken").Value
+                refresh_token = identity.FindFirst("refreshToken").Value,
+                id = identity.FindFirst("userId").Value
             };
             return response;
         }
@@ -184,7 +185,7 @@ namespace BusTrackWeb.TokenProvider
                 u.Token = token;
                 context.SaveChanges();
 
-                return Task.FromResult(new ClaimsIdentity(new GenericIdentity(user, "Token"), new Claim[] { new Claim("refreshToken", token.id) }));
+                return Task.FromResult(new ClaimsIdentity(new GenericIdentity(user, "Token"), new Claim[] { new Claim("refreshToken", token.id), new Claim("userId", u.id.ToString()) }));
             }
 
             invalid:
