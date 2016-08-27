@@ -1,8 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace BusTrackWeb.Models
 {
@@ -28,7 +24,7 @@ namespace BusTrackWeb.Models
             optionsBuilder.UseNpgsql(@"Host=localhost;Database=TFG;Username=postgres;Password=root");
         }
 
-        //public DbSet<LineHasStop> LineHasStop { get; set; }
+        public DbSet<LineHasStop> LineHasStop { get; set; }
         public DbSet<Line> Line { get; set; }
         public DbSet<User> User { get; set; }
         public DbSet<Stop> Stop { get; set; }
