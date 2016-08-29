@@ -6,13 +6,13 @@
     <EditText
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/editText1"
+        android:id="@+id/emailField"
         android:hint="@string/UsernameHint" />
     <EditText
         android:inputType="textPassword"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/editText2"
+        android:id="@+id/passField"
         android:hint="@string/PasswordHint" />
     <LinearLayout
         android:orientation="horizontal"

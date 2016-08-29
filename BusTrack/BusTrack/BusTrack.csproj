@@ -111,8 +111,8 @@
     <Compile Include="Utilities\WifiUtility.cs" />
   </ItemGroup>
   <ItemGroup>
+    <AndroidAsset Include="Assets\emt.json" />
     <None Include="GettingStarted.Xamarin" />
-    <None Include="google-services.json" />
     <None Include="packages.config" />
     <None Include="Resources\AboutResources.txt" />
     <None Include="Assets\AboutAssets.txt" />

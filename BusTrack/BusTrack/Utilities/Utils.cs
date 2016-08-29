@@ -1,17 +1,11 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 using Android.App;
 using Android.Content;
-using Android.OS;
-using Android.Runtime;
-using Android.Views;
-using Android.Widget;
 using BusTrack.Data;
 using System.Net;
 using Newtonsoft.Json.Linq;
+using System.Threading.Tasks;
 
 namespace BusTrack.Utilities
 {
@@ -19,6 +13,7 @@ namespace BusTrack.Utilities
     {
         public static readonly string PREF_DATA_LIMIT = "limitData";
         public static readonly string PREF_USER_ID = "userID";
+        public static readonly string PREF_USER_TOKEN = "userTk";
         public static readonly string PREF_NETWORKS = "networks";
         public static readonly string NAME_PREF = "BusTrack";
 
@@ -42,6 +37,16 @@ namespace BusTrack.Utilities
                 distance = parsed["distance"]["value"].Value<long>();
             }
             return distance;
+        }
+
+        public async static Task<bool> Login(string user, string pass)
+        {
+            return true; // TODO: Finish login
+        }
+
+        public async static Task<bool> Refresh(string accToken)
+        {
+            return true;
         }
     }
 

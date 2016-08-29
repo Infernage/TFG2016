@@ -325,19 +325,17 @@ namespace BusTrack
                     int lineNumber = -1;
                     int.TryParse(number.Text, out lineNumber);
 
-                    // Don't let user to create an existent line
-                    if (realm.All<Line>().Where(l => l.id == lineNumber).Count() > 0)
-                    {
-                        Toast.MakeText(Activity, "Error: La línea ya existe", ToastLength.Long).Show();
-                        return;
-                    }
+                    var lines = realm.All<Line>().Where(l => l.id == lineNumber);
 
                     realm.Write(() =>
                     {
-                        Line line = realm.CreateObject<Line>();
-                        if (lineNumber != -1) line.id = lineNumber;
-                        string n = name.Text;
-                        line.name = n;
+                        Line line = lines.Count() > 0 ? lines.First() : realm.CreateObject<Line>();
+                        if (lines.Count() == 0)
+                        {
+                            if (lineNumber != -1) line.id = lineNumber;
+                            string n = name.Text;
+                            line.name = n;
+                        }
                         t.line = line;
 
                         if ((t.bus.line != null && t.bus.line.id != t.line.id) || (t.bus.line == null))

@@ -2,9 +2,9 @@ using Android.Content;
 using Android.OS;
 using Android.Gms.Common.Apis;
 using Android.Gms.Common;
-using Android.Gms.Location;
 using Android.Locations;
 using System.Threading;
+using Android.Gms.Location;
 
 namespace BusTrack.Utilities
 {
@@ -21,7 +21,9 @@ namespace BusTrack.Utilities
         {
             get
             {
-                //return last;
+                /*RequestUpdates();
+                evt.WaitOne();
+                return last;*/
                 return LocationServices.FusedLocationApi.GetLastLocation(clientLocation);
             }
         }
@@ -29,7 +31,7 @@ namespace BusTrack.Utilities
         public LocationUtility(Context context)
         {
             clientLocation = new GoogleApiClient.Builder(context).AddApi(LocationServices.API).AddConnectionCallbacks(this).AddOnConnectionFailedListener(this).Build();
-            //this.evt = evt;
+            //evt = new AutoResetEvent(false);
             Connect();
         }
 
@@ -48,18 +50,12 @@ namespace BusTrack.Utilities
         {
             if (clientLocation.IsConnected)
             {
-                //LocationServices.FusedLocationApi.RemoveLocationUpdates(clientLocation, this);
                 clientLocation.Disconnect();
             }
         }
 
         public void OnConnected(Bundle connectionHint)
         {
-            /*LocationRequest req = new LocationRequest();
-            req.SetPriority(LocationRequest.PriorityBalancedPowerAccuracy);
-            req.SetInterval(5000);
-            req.SetFastestInterval(5000);
-            LocationServices.FusedLocationApi.RequestLocationUpdates(clientLocation, req, this);*/
         }
 
         public void OnConnectionFailed(ConnectionResult result)
@@ -81,6 +77,17 @@ namespace BusTrack.Utilities
         public void OnLocationChanged(Location location)
         {
             last = location;
+            LocationServices.FusedLocationApi.RemoveLocationUpdates(clientLocation, this);
+            //evt.Set();
+        }
+
+        private void RequestUpdates()
+        {
+            LocationRequest req = new LocationRequest();
+            req.SetPriority(LocationRequest.PriorityBalancedPowerAccuracy);
+            req.SetInterval(5000);
+            req.SetFastestInterval(1000);
+            LocationServices.FusedLocationApi.RequestLocationUpdates(clientLocation, req, this);
         }
     }
 }

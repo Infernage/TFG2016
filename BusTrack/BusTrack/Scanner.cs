@@ -37,7 +37,7 @@ namespace BusTrack
                 ISharedPreferences prefs = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private);
                 try
                 {
-                    using(Realm realm = Realm.GetInstance(Utils.NAME_PREF))
+                    using (Realm realm = Realm.GetInstance(Utils.NAME_PREF))
                     {
                         string busAp = prefs.GetString("currentAp", null);
                         int travelId = prefs.GetInt("currentTravel", -1);
@@ -60,13 +60,11 @@ namespace BusTrack
 
                                 // Search for a new travel
                                 current = Search(realm, candidates);
-                                
+
                                 // If we get a travel, start it
                                 if (current != null)
                                 {
                                     busAp = current.bus.mac;
-
-                                    Log.Debug(Utils.NAME_PREF, "Current bus is " + busAp);
 
                                     // Store last state
                                     ISharedPreferencesEditor editor = prefs.Edit();
@@ -85,12 +83,14 @@ namespace BusTrack
                                 // Check if user stops the current travel
                                 if (ScanDown(wifi, location, busAp, candidates, out end))
                                 {
+                                    NotificationManager notificator = GetSystemService(NotificationService) as NotificationManager;
+                                    notificator.Cancel("correctTravel", current.id);
+
                                     // User finished travel
                                     candidates[busAp].Item1.Reset();
                                     candidates.Clear();
                                     Stop nearest = FindNearestStop(end, realm);
                                     long distance = Utils.GetDistance(current.init, nearest);
-                                    Log.Debug(Utils.NAME_PREF, "Travel finished");
                                     realm.Write(() =>
                                     {
                                         current.time = DateTimeOffset.Now.Subtract(current.date).Seconds;
@@ -119,7 +119,8 @@ namespace BusTrack
                             realm.Refresh();
                         }
                     }
-                } catch (ThreadInterruptedException e)
+                }
+                catch (ThreadInterruptedException e)
                 {
                     // Ignore e
                     location.Disconnect();
@@ -170,7 +171,7 @@ namespace BusTrack
                 // No stored stop! Create new one
                 realm.Write(() =>
                 {
-                    var stop  = realm.CreateObject<Stop>();
+                    var stop = realm.CreateObject<Stop>();
                     stop.location = current;
                     nearest = stop;
                 });
@@ -312,38 +313,39 @@ namespace BusTrack
 
                     // Search which line owns the stop
                     var lines = nearest.lines;
+                    NotificationManager notificator = GetSystemService(NotificationService) as NotificationManager;
+                    Notification.Builder builder = new Notification.Builder(Application.Context);
+                    builder.SetSmallIcon(Android.Resource.Drawable.IcDialogInfo);
+
+                    builder.SetDefaults(NotificationDefaults.Sound | NotificationDefaults.Vibrate);
+
+                    Intent opts = new Intent(Application.Context, typeof(MainActivity));
+                    opts.PutExtra("travel", current.id);
+                    PendingIntent wifiOpts = PendingIntent.GetActivity(Application.Context, 1, opts, PendingIntentFlags.OneShot);
+                    builder.SetContentIntent(wifiOpts);
+
+                    if ((int)Build.VERSION.SdkInt >= 21)
+                    {
+                        builder.SetCategory(Notification.CategoryEvent);
+                        builder.SetVisibility(NotificationVisibility.Public);
+                    }
                     if (lines.Count > 1 || lines.Count == 0)
                     {
                         // Ask user in which line is him
-                        NotificationManager notificator = GetSystemService(NotificationService) as NotificationManager;
-                        Notification.Builder builder = new Notification.Builder(Application.Context);
-                        builder.SetSmallIcon(Android.Resource.Drawable.IcDialogInfo);
-
                         builder.SetContentText("Por favor, introduce la línea en la que estás viajando.");
                         builder.SetContentTitle("Línea de bus no detectada");
 
-                        builder.SetDefaults(NotificationDefaults.Sound | NotificationDefaults.Vibrate);
                         builder.SetAutoCancel(true);
                         builder.SetPriority((int)NotificationPriority.Max);
 
-                        Intent opts = new Intent(Application.Context, typeof(MainActivity));
-                        opts.PutExtra("travel", current.id);
                         if (lines.Count > 1)
                         {
                             List<int> ids = new List<int>();
-                            foreach(Line l in lines)
+                            foreach (Line l in lines)
                             {
                                 ids.Add(l.id);
                             }
                             opts.PutExtra("lines", ids.ToArray());
-                        }
-                        PendingIntent wifiOpts = PendingIntent.GetActivity(Application.Context, 1, opts, PendingIntentFlags.OneShot);
-                        builder.SetContentIntent(wifiOpts);
-
-                        if ((int)Build.VERSION.SdkInt >= 21)
-                        {
-                            builder.SetCategory(Notification.CategoryError);
-                            builder.SetVisibility(NotificationVisibility.Public);
                         }
 
                         Notification notif = builder.Build();
@@ -351,6 +353,11 @@ namespace BusTrack
                     }
                     else
                     {
+                        builder.SetContentText("Viajando en la línea " + lines.First().id.ToString() + ". Pulsa para cambiar.");
+                        builder.SetContentTitle("Viaje detectado");
+
+                        Notification notif = builder.Build();
+                        notificator.Notify("correctTravel", current.id, notif);
                         realm.Write(() =>
                         {
                             current.init = nearest;
@@ -362,7 +369,6 @@ namespace BusTrack
                                 current.bus.lastRefresh = DateTimeOffset.Now;
                             }
                         });
-                        // TODO: Notify user if current line is correct (?)
                     }
                 }
             }

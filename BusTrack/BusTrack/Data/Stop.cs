@@ -38,6 +38,8 @@ namespace BusTrack.Data
         }
         [JsonProperty("realmLines")]
         public RealmList<Line> lines { get; }
+        public RealmList<Travel> initTravels { get; }
+        public RealmList<Travel> endingTravels { get; }
 
         private double lat { get; set; }
         private double lon { get; set; }

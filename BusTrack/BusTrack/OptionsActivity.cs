@@ -51,8 +51,7 @@ namespace BusTrack
                 });
                 alert.SetPositiveButton("Aceptar", (ob, ev) =>
                 {
-                    RealmConfiguration config = new RealmConfiguration(Utils.NAME_PREF, false);
-                    using (Realm realm = Realm.GetInstance(config))
+                    using (Realm realm = Realm.GetInstance(Utils.NAME_PREF))
                     {
                         int userId = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private).GetInt(Utils.PREF_USER_ID, -1);
                         if (userId == -1)
