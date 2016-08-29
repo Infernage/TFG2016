@@ -300,7 +300,7 @@ namespace BusTrackWeb.Controllers
                 {
                     User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
                     double sub = Statistics.POLLUTION_CAR - Statistics.POLLUTION_BUS;
-                    return user.Travels.Where(t => t.distance != 0).Select(t => t.distance).Aggregate(0D, (a, b) => a + (b - sub));
+                    return user.Travels.Where(t => t.distance != 0).Select(t => t.distance).Aggregate(0D, (a, b) => a + (b * sub));
                 }
             });
             Task<double> pollutionEBusTask = Task.Factory.StartNew(() =>
@@ -310,7 +310,7 @@ namespace BusTrackWeb.Controllers
                 {
                     User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
                     double sub = Statistics.POLLUTION_CAR - Statistics.POLLUTION_BUS_E;
-                    return user.Travels.Where(t => t.distance != 0).Select(t => t.distance).Aggregate(0D, (a, b) => a + (b - sub));
+                    return user.Travels.Where(t => t.distance != 0).Select(t => t.distance).Aggregate(0D, (a, b) => a + (b * sub));
                 }
             });
 

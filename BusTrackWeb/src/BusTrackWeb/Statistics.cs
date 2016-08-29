@@ -1,5 +1,4 @@
 ﻿using BusTrackWeb.Models;
-using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -16,7 +15,7 @@ namespace BusTrackWeb
     {
         public static readonly float POLLUTION_CAR = 119F, POLLUTION_BUS = 104F, POLLUTION_BUS_E = 18.6F;
 
-        #region mapReduce
+        #region mapReduceTravelsByDay
 
         private ConcurrentBag<DateTimeOffset> travelBag = null;
         private BlockingCollection<DateTimeOffset> travelChunks = null;
@@ -25,9 +24,9 @@ namespace BusTrackWeb
         /// <summary>
         /// MapReduce method for get travels/day more precise.
         /// </summary>
-        /// <param name="id">The user ID.</param>
-        /// <returns>The user travels/day.</returns>
-        internal double MapReduceTravelsByDay(long id)
+        /// <param name="id">The user ID or optional to indicate we want all travels.</param>
+        /// <returns>The user/general travels by day.</returns>
+        internal double MapReduceTravelsByDay(long id = -1)
         {
             if (travelChunks == null || travelChunks.IsAddingCompleted)
             {
@@ -53,7 +52,7 @@ namespace BusTrackWeb
         /// <summary>
         /// Mapping function. Fills the blocking collection with dates.
         /// </summary>
-        /// <param name="userId">The user ID.</param>
+        /// <param name="userId">The user ID or -1 to indicate all travels.</param>
         private void MapTravels(long userId)
         {
             Parallel.ForEach(ProduceTravelsIDs(userId), id =>
@@ -85,14 +84,14 @@ namespace BusTrackWeb
         /// <summary>
         /// Source of mapping function.
         /// </summary>
-        /// <param name="id">The user ID.</param>
+        /// <param name="id">The user ID or -1 to indicate all travels.</param>
         /// <returns>Gets all travels IDs associated with the user.</returns>
         private IEnumerable<long> ProduceTravelsIDs(long id)
         {
             using (var context = new TFGContext())
             {
                 List<int> res = new List<int>();
-                var all = context.Travel.Where(t => t.userId == id);
+                var all = id != -1 ? context.Travel.Where(t => t.userId == id) : context.Travel;
                 foreach (Travel t in all)
                 {
                     yield return t.id;
@@ -100,6 +99,6 @@ namespace BusTrackWeb
             }
         }
 
-        #endregion mapReduce
+        #endregion mapReduceTravelsByDay
     }
 }

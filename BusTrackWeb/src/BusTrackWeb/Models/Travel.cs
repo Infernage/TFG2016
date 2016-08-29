@@ -17,7 +17,7 @@ namespace BusTrackWeb.Models
         public long lineId { get; set; }
         public long initId { get; set; }
         public long endId { get; set; }
-        public long userId { get; set; }
+        public long? userId { get; set; }
         public string busId { get; set; }
 
         [ForeignKey("lineId")]
