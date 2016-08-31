@@ -1,6 +1,7 @@
 
 using Android.App;
 using Android.Widget;
+using BusTrack.Utilities;
 using System;
 
 namespace BusTrack
@@ -68,6 +69,7 @@ namespace BusTrack
             logout.Click += evt;
             logout.Click += (sender, e) =>
             {
+                Utils.Logout(current);
                 if (!(current is LoginActivity))
                 {
                     current.StartActivity(typeof(LoginActivity));

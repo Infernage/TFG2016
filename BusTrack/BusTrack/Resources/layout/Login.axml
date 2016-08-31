@@ -7,7 +7,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/emailField"
-        android:hint="@string/UsernameHint" />
+        android:hint="@string/UsernameHint"
+        android:inputType="textEmailAddress" />
     <EditText
         android:inputType="textPassword"
         android:layout_width="match_parent"
@@ -40,4 +41,11 @@
             android:background="@android:color/holo_purple"
             android:textColor="@color/white" />
     </LinearLayout>
+    <Button
+        android:text="¿Contraseña perdida?"
+        android:id="@+id/forgotButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/holo_orange_light"
+        android:layout_marginTop="5dp" />
 </LinearLayout>

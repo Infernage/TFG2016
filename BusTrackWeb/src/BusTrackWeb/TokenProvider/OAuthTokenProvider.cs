@@ -85,7 +85,8 @@ namespace BusTrackWeb.TokenProvider
                     token_type = "Bearer",
                     access_token = encoded,
                     expires_in = (int)options.ValidFor.TotalSeconds,
-                    refresh_token = refresh_token
+                    refresh_token = refresh_token,
+                    id = user.id
                 };
             }
         }

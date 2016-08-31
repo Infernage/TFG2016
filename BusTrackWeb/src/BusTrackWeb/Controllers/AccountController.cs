@@ -98,7 +98,12 @@ namespace BusTrackWeb.Controllers
                 {
                     code = Base64UrlEncoder.Encode(hmac.ComputeHash(Encoding.UTF8.GetBytes(string.Concat(user.id, user.email, user.name, validTo))));
                 }
-                var url = Url.Action("ResetPassword", "Account", new { userId = user.id, code = code, exp = validTo }, protocol: HttpContext.Request.Scheme);
+                string signature;
+                using (var sha = SHA512.Create())
+                {
+                    signature = Base64UrlEncoder.Encode(sha.ComputeHash(Encoding.UTF8.GetBytes(user.email)));
+                }
+                var url = Url.Action("ResetPassword", "Account", new { userId = user.id, code = code, exp = validTo, sign = signature }, protocol: HttpContext.Request.Scheme);
                 user.resetPass = true; // Mark in the DB
                 context.SaveChanges();
 
@@ -129,7 +134,41 @@ namespace BusTrackWeb.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public ActionResult ResetPassword([FromQuery] long userId, [FromQuery] string code, [FromQuery] long exp, [FromForm] string password, [FromForm] string confPassword, [FromForm] string hash)
+        public ActionResult ResetPassword([FromQuery] long userId, [FromQuery] string code, [FromQuery] long exp,
+            [FromQuery] string sign)
+        {
+            if (!ModelState.IsValid) return BadRequest("Validation error");
+            DateTime validTo = OAuthTokenProvider.FromUnixEpochDate(exp);
+            if (validTo - DateTime.UtcNow <= TimeSpan.Zero) return BadRequest("Code expired");
+
+            using (var context = new TFGContext())
+            {
+                // Check if user exists
+                var query = from us in context.User where userId == us.id select us;
+                if (!query.Any()) return BadRequest("Code expired");
+
+                // Check if code is correct
+                User u = query.First();
+                string nCode;
+                using (var hmac = new HMACSHA256(Convert.FromBase64String(u.hash.Split(':')[0])))
+                {
+                    nCode = Base64UrlEncoder.Encode(hmac.ComputeHash(Encoding.UTF8.GetBytes(string.Concat(u.id, u.email, u.name, exp))));
+                }
+                if (!nCode.Equals(code) || !u.resetPass) return BadRequest("Code expired");
+
+                // Set view data
+                ViewData["userId"] = userId;
+                ViewData["code"] = code;
+                ViewData["exp"] = exp;
+                ViewData["sign"] = sign;
+                return View();
+            }
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        public ActionResult ResetPassword([FromForm] long userId, [FromForm] string code, [FromForm] long exp, [FromForm] string password, [FromForm] string confPassword,
+            [FromForm] string hash, [FromForm] string sign)
         {
             if (!ModelState.IsValid) return BadRequest("Validation error");
             DateTime validTo = OAuthTokenProvider.FromUnixEpochDate(exp);
@@ -166,16 +205,10 @@ namespace BusTrackWeb.Controllers
 
                     return Ok();
                 }
-                else // Access from reset link
-                {
-                    // Set view data
-                    ViewData["userId"] = userId;
-                    ViewData["code"] = code;
-                    ViewData["exp"] = exp;
-                    return View();
-                }
+                return BadRequest("Validation error");
             }
         }
+
         #endregion Anonymous access
 
         [HttpPost]
