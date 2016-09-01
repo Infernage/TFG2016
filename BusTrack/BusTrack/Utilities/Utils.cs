@@ -12,6 +12,7 @@ using System.Text;
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using Realms;
 
 namespace BusTrack.Utilities
 {
@@ -31,12 +32,10 @@ namespace BusTrack.Utilities
 
         internal static long ToUnixEpochDate(DateTime date) => (long)Math.Round((date.ToUniversalTime() - new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero)).TotalSeconds);
 
-        private static readonly string MEDIA_TYPE = "application/x-www-form-urlencoded";
         private static readonly string PREF_VALID_TOKEN = "validTo";
         private static readonly string DISTANCE_MATRIX =
             "https://maps.googleapis.com/maps/api/distancematrix/json?key=AIzaSyDVZGmOKBOdXIClT1ArDYuK3b3cGHZ6LJA&origins=<->origin<->&destinations=<->destination<->&mode=transit&transit_mode=bus";
         private static char base64PadCharacter = '=';
-        private static string doubleBase64PadCharacter = "==";
         private static char base64Character62 = '+';
         private static char base64Character63 = '/';
         private static char base64UrlCharacter62 = '-';
@@ -58,6 +57,37 @@ namespace BusTrack.Utilities
         }
 
         /// <summary>
+        /// Gets the user statistics from the server.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <returns>A JSON string with the user statistics or an empty one if something went wrong.</returns>
+        public async static Task<string> GetStatistics(Context context)
+        {
+            if (!UserLogged(context)) return string.Empty;
+
+            using (Realm realm = Realm.GetInstance(NAME_PREF))
+            {
+                long id = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private).GetLong(PREF_USER_ID, -1);
+
+                using (var client = new HttpClient())
+                {
+                    client.MaxResponseContentBufferSize = 256000;
+                    client.Timeout = TimeSpan.FromSeconds(30);
+
+                    var content = new FormUrlEncodedContent(new[]
+                    {
+                        new KeyValuePair<string, string>("id", id.ToString())
+                    });
+
+                    HttpResponseMessage response = await client.PostAsync(new StringBuilder(WEB_URL).Append("/account/getstatistics").ToString(), content);
+                    string json = string.Empty;
+                    if (response.IsSuccessStatusCode) json = await response.Content.ReadAsStringAsync();
+                    return json;
+                }
+            }
+        }
+
+        /// <summary>
         /// Performs a login.
         /// </summary>
         /// <param name="user">User email.</param>
@@ -66,10 +96,10 @@ namespace BusTrack.Utilities
         /// <returns>True or false if response is successful.</returns>
         public async static Task<bool> Login(string user, string pass, Context context)
         {
-            using (var client = new HttpClient(new Xamarin.Android.Net.AndroidClientHandler()))
+            using (var client = new HttpClient())
             {
                 client.MaxResponseContentBufferSize = 256000;
-                client.Timeout = TimeSpan.FromDays(1);
+                client.Timeout = TimeSpan.FromSeconds(30);
 
                 string nPass;
                 using (var sha = SHA512.Create())
@@ -109,7 +139,7 @@ namespace BusTrack.Utilities
         public static bool UserLogged(Context context)
         {
             ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
-            return prefs.GetInt(PREF_USER_ID, -1) == -1;
+            return prefs.GetLong(PREF_USER_ID, -1) < 1;
         }
 
         /// <summary>
@@ -130,7 +160,7 @@ namespace BusTrack.Utilities
             using (var client = new HttpClient())
             {
                 client.MaxResponseContentBufferSize = 256000;
-                client.Timeout = TimeSpan.FromDays(1);
+                client.Timeout = TimeSpan.FromSeconds(30);
 
                 var content = new FormUrlEncodedContent(new[]
                 {
@@ -183,7 +213,7 @@ namespace BusTrack.Utilities
             using (var client = new HttpClient())
             {
                 client.MaxResponseContentBufferSize = 256000;
-                client.Timeout = TimeSpan.FromDays(1);
+                client.Timeout = TimeSpan.FromSeconds(30);
 
                 string nPass;
                 using (var sha = SHA512.Create())
@@ -219,7 +249,7 @@ namespace BusTrack.Utilities
             using (var client = new HttpClient())
             {
                 client.MaxResponseContentBufferSize = 256000;
-                client.Timeout = TimeSpan.FromDays(1);
+                client.Timeout = TimeSpan.FromSeconds(30);
 
                 var content = new FormUrlEncodedContent(new[]
                 {

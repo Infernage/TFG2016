@@ -56,7 +56,7 @@ namespace BusTrack
                         int userId = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private).GetInt(Utils.PREF_USER_ID, -1);
                         if (userId == -1)
                         {
-                            // TODO: Logout, cause no user has logged in
+                            Utils.Logout(this);
                             Toast.MakeText(this, "Error: ID de usuario no encontrada", ToastLength.Long).Show();
                             dialog.Dismiss();
                             return;

@@ -274,13 +274,12 @@ namespace BusTrackWeb.Controllers
 
         [HttpPost]
         [Authorize]
-        public async Task<ActionResult> GetStatistics([FromForm] string sig, [FromForm] long id)
+        public async Task<ActionResult> GetStatistics([FromForm] long id)
         {
             using (var context = new TFGContext())
             {
                 User user = GetUser(id, context);
                 if (user == null) return BadRequest("Non existent user");
-                if (!CheckSignature(sig, user, context)) return BadRequest("Bad signature"); // Check password signature before doing anything
             }
 
             // Since entity framework DBcontext is not thread-safe, we have to create each one in the threads
@@ -366,13 +365,12 @@ namespace BusTrackWeb.Controllers
 
         [HttpPost]
         [Authorize]
-        public ActionResult Sync([FromForm] string sig, [FromForm] long id, [FromForm] string obj)
+        public ActionResult Sync([FromForm] long id, [FromForm] string obj)
         {
             using (var context = new TFGContext())
             {
                 User user = GetUser(id, context);
                 if (user == null) return BadRequest("Non existent user");
-                if (!CheckSignature(sig, user, context)) return BadRequest("Bad signature"); // Check password signature before modify anything
 
                 var json = JObject.Parse(obj);
                 var buses = json["buses"].Children();

@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 using Android.App;
 using Android.Content;
 using Android.OS;
 using Android.Runtime;
-using Android.Views;
-using Android.Widget;
 using System.Threading;
 using BusTrack.Utilities;
 using Android.Net.Wifi;
@@ -17,7 +14,6 @@ using Android.Locations;
 using Realms;
 using BusTrack.Data;
 using System.Collections.Specialized;
-using Android.Util;
 
 namespace BusTrack
 {
@@ -304,7 +300,9 @@ namespace BusTrack
 
                         // Create new travel
                         current = realm.CreateObject<Travel>();
-                        // TODO: Insert user id into travel object
+                        ISharedPreferences prefs = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private);
+                        long id = prefs.GetLong(Utils.PREF_USER_ID, -1);
+                        current.userId = id != -1 ? id : null as long?;
                         current.date = DateTimeOffset.Now;
                         current.bus = currentBus;
                         current.init = nearest;
