@@ -107,8 +107,8 @@ namespace BusTrack
 
                                     // Reset last state
                                     ISharedPreferencesEditor editor = prefs.Edit();
-                                    editor.PutInt("currentTravel", -1);
-                                    editor.PutString("currentAp", null);
+                                    editor.Remove("currentTravel");
+                                    editor.Remove("currentAp");
                                     editor.Apply();
                                 }
                             }
@@ -116,9 +116,9 @@ namespace BusTrack
                         }
                     }
                 }
-                catch (ThreadInterruptedException e)
+                catch (ThreadInterruptedException)
                 {
-                    // Ignore e
+                    // Ignore exception
                     location.Disconnect();
                 }
             });

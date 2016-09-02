@@ -144,5 +144,15 @@ namespace BusTrackWeb.Controllers
             await OAuthTokenProvider.Revoke(token);
             return Ok(); // Always success even with an invalid token
         }
+
+        /// <summary>
+        /// Method used to check access token validity from android APP.
+        /// </summary>
+        [HttpGet]
+        [Authorize]
+        public ActionResult Check()
+        {
+            return Ok();
+        }
     }
 }

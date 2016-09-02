@@ -21,6 +21,8 @@ namespace BusTrack.Utilities
         public static readonly string PREF_DATA_LIMIT = "limitData";
         public static readonly string PREF_USER_ID = "userID";
         public static readonly string PREF_USER_TOKEN = "userTk";
+        public static readonly string PREF_USER_NAME = "userName";
+        public static readonly string PREF_USER_EMAIL = "userEmail";
         public static readonly string PREF_NETWORKS = "networks";
         public static readonly string NAME_PREF = "BusTrack";
 
@@ -57,34 +59,44 @@ namespace BusTrack.Utilities
         }
 
         /// <summary>
+        /// Checks if User/Refresh token are valid.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <returns>True or false whether those tokens are still valids or they have expired.</returns>
+        public async static Task<bool> CheckLogin(Context context)
+        {
+            if (!UserLogged(context)) return false;
+            // 1-> Check if user token is valid with shared prefs
+            ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
+            if (!prefs.Contains(PREF_VALID_TOKEN)) return false;
+            if (prefs.GetLong(PREF_VALID_TOKEN, 0) > ToUnixEpochDate(DateTime.Now)) return true;
+
+            // 2-> Check if user token is valid with web server
+            if ((await CallWebAPI("/oauth/check", context)).IsSuccessStatusCode) return true;
+
+            // 3-> User token expired, refresh it!
+            if (await Refresh(context)) return true;
+
+            // 4-> Refreh token expired too, request a new login!
+            return false;
+        }
+
+        /// <summary>
         /// Gets the user statistics from the server.
         /// </summary>
         /// <param name="context">Android context.</param>
         /// <returns>A JSON string with the user statistics or an empty one if something went wrong.</returns>
         public async static Task<string> GetStatistics(Context context)
         {
-            if (!UserLogged(context)) return string.Empty;
+            ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
+            long id = prefs.GetLong(PREF_USER_ID, -1);
 
-            using (Realm realm = Realm.GetInstance(NAME_PREF))
+            var content = new[]
             {
-                long id = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private).GetLong(PREF_USER_ID, -1);
-
-                using (var client = new HttpClient())
-                {
-                    client.MaxResponseContentBufferSize = 256000;
-                    client.Timeout = TimeSpan.FromSeconds(30);
-
-                    var content = new FormUrlEncodedContent(new[]
-                    {
-                        new KeyValuePair<string, string>("id", id.ToString())
-                    });
-
-                    HttpResponseMessage response = await client.PostAsync(new StringBuilder(WEB_URL).Append("/account/getstatistics").ToString(), content);
-                    string json = string.Empty;
-                    if (response.IsSuccessStatusCode) json = await response.Content.ReadAsStringAsync();
-                    return json;
-                }
-            }
+                new KeyValuePair<string, string>("id", id.ToString())
+            };
+            HttpResponseMessage response = await CallWebAPI("/account/getstatistics", context, content);
+            return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync() : string.Empty;
         }
 
         /// <summary>
@@ -96,39 +108,26 @@ namespace BusTrack.Utilities
         /// <returns>True or false if response is successful.</returns>
         public async static Task<bool> Login(string user, string pass, Context context)
         {
-            using (var client = new HttpClient())
+            var content = new[]
             {
-                client.MaxResponseContentBufferSize = 256000;
-                client.Timeout = TimeSpan.FromSeconds(30);
-
-                string nPass;
-                using (var sha = SHA512.Create())
-                {
-                    string sign = EncodeURL64(sha.ComputeHash(Encoding.UTF8.GetBytes(user)));
-                    nPass = Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes(pass + sign)));
-                }
-
-                var content = new FormUrlEncodedContent(new[]
-                {
-                    new KeyValuePair<string, string>("username", user),
-                    new KeyValuePair<string, string>("password", nPass)
-                });
-
-                HttpResponseMessage response = await client.PostAsync(new StringBuilder(WEB_URL)
-                    .Append("/oauth/generate").ToString(), content);
-                if (response.IsSuccessStatusCode)
-                {
-                    string token = await response.Content.ReadAsStringAsync();
-                    var jsonResp = JObject.Parse(token);
-                    ISharedPreferencesEditor edit = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private)
-                        .Edit();
-                    edit.PutInt(PREF_USER_ID, jsonResp["id"].ToObject<int>());
-                    edit.PutLong(PREF_VALID_TOKEN, ToUnixEpochDate(DateTime.Now.AddSeconds(jsonResp["expires_in"].ToObject<double>())));
-                    edit.PutString(PREF_USER_TOKEN, token);
-                    edit.Commit();
-                }
-                return response.IsSuccessStatusCode;
+                new KeyValuePair<string, string>("username", user),
+                new KeyValuePair<string, string>("password", PerformClientHash(user, pass))
+            };
+            HttpResponseMessage response = await CallWebAPI("/oauth/generate", arrayContent: content);
+            if (response.IsSuccessStatusCode)
+            {
+                string token = await response.Content.ReadAsStringAsync();
+                var jsonResp = JObject.Parse(token);
+                ISharedPreferencesEditor edit = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private)
+                    .Edit();
+                edit.PutLong(PREF_USER_ID, jsonResp["id"].ToObject<long>());
+                edit.PutLong(PREF_VALID_TOKEN, ToUnixEpochDate(DateTime.Now.AddSeconds(jsonResp["expires_in"].ToObject<double>())));
+                edit.PutString(PREF_USER_TOKEN, token);
+                edit.PutString(PREF_USER_NAME, jsonResp["name"].ToString());
+                edit.PutString(PREF_USER_EMAIL, user);
+                edit.Commit();
             }
+            return response.IsSuccessStatusCode;
         }
 
         /// <summary>
@@ -139,7 +138,17 @@ namespace BusTrack.Utilities
         public static bool UserLogged(Context context)
         {
             ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
-            return prefs.GetLong(PREF_USER_ID, -1) < 1;
+            bool value = prefs.Contains(PREF_USER_TOKEN);
+            if (value)
+            {
+                var json = JObject.Parse(prefs.GetString(PREF_USER_TOKEN, ""));
+                ISharedPreferencesEditor edit = prefs.Edit();
+                if (!prefs.Contains(PREF_USER_ID)) edit.PutLong(PREF_USER_ID, json["id"].ToObject<long>());
+                if (!prefs.Contains(PREF_VALID_TOKEN)) edit.PutLong(PREF_VALID_TOKEN, ToUnixEpochDate(DateTime.Now.AddSeconds(json["expires_in"].ToObject<double>())));
+                if (!prefs.Contains(PREF_USER_NAME)) edit.PutString(PREF_USER_NAME, json["name"].ToString());
+                if (!prefs.Contains(PREF_USER_EMAIL)) edit.PutString(PREF_USER_EMAIL, json["email"].ToString());
+            }
+            return value;
         }
 
         /// <summary>
@@ -149,37 +158,25 @@ namespace BusTrack.Utilities
         /// <returns>True or false depending if the action was successful or not.</returns>
         public async static Task<bool> Refresh(Context context)
         {
-            if (!UserLogged(context)) return false;
-
             ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
             string token = prefs.GetString(PREF_USER_TOKEN, "");
             if (token.Length == 0) return false;
 
-            string refresh = JObject.Parse(token)["access_token"].ToString();
-
-            using (var client = new HttpClient())
+            var content = new[]
             {
-                client.MaxResponseContentBufferSize = 256000;
-                client.Timeout = TimeSpan.FromSeconds(30);
-
-                var content = new FormUrlEncodedContent(new[]
-                {
-                    new KeyValuePair<string, string>("token", refresh)
-                });
-
-                HttpResponseMessage response = await client.PostAsync(new StringBuilder(WEB_URL)
-                    .Append("/oauth/refresh").ToString(), content);
-                if (response.IsSuccessStatusCode)
-                {
-                    token = await response.Content.ReadAsStringAsync();
-                    var jsonResp = JObject.Parse(token);
-                    ISharedPreferencesEditor edit = prefs.Edit();
-                    edit.PutString(PREF_USER_TOKEN, token);
-                    edit.PutLong(PREF_VALID_TOKEN, ToUnixEpochDate(DateTime.Now.AddSeconds(jsonResp["expires_in"].ToObject<double>())));
-                    edit.Commit();
-                }
-                return response.IsSuccessStatusCode;
+                new KeyValuePair<string, string>("token", JObject.Parse(token)["access_token"].ToString())
+            };
+            HttpResponseMessage response = await CallWebAPI("/oauth/refresh", arrayContent: content);
+            if (response.IsSuccessStatusCode)
+            {
+                token = await response.Content.ReadAsStringAsync();
+                var jsonResp = JObject.Parse(token);
+                ISharedPreferencesEditor edit = prefs.Edit();
+                edit.PutString(PREF_USER_TOKEN, token);
+                edit.PutLong(PREF_VALID_TOKEN, ToUnixEpochDate(DateTime.Now.AddSeconds(jsonResp["expires_in"].ToObject<double>())));
+                edit.Commit();
             }
+            return response.IsSuccessStatusCode;
         }
 
         /// <summary>
@@ -193,9 +190,57 @@ namespace BusTrack.Utilities
                 ISharedPreferencesEditor edit = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private).Edit();
                 edit.Remove(PREF_USER_ID);
                 edit.Remove(PREF_USER_TOKEN);
+                edit.Remove(PREF_USER_EMAIL);
+                edit.Remove(PREF_USER_NAME);
                 edit.Commit();
                 context.StopService(new Intent(context, typeof(Scanner)));
             }
+        }
+
+        /// <summary>
+        /// Deletes the account from the system.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <param name="sign">The user password to confirm it.</param>
+        /// <returns>True or false whether the account has been deleted or not.</returns>
+        internal static async Task<bool> DeleteAccount(Context context, string sign)
+        {
+            ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
+            long id = prefs.GetLong(PREF_USER_ID, -1);
+            var json = JObject.Parse(prefs.GetString(PREF_USER_TOKEN, ""));
+
+            var content = new[]
+            {
+                new KeyValuePair<string, string>("id", id.ToString()),
+                new KeyValuePair<string, string>("sign", PerformClientHash(json["email"].ToString(), sign))
+            };
+            HttpResponseMessage response = await CallWebAPI("/account/delete", context, content);
+            if (response.IsSuccessStatusCode) Logout(context);
+            return response.IsSuccessStatusCode;
+        }
+
+        /// <summary>
+        /// Changes the account credentials.
+        /// </summary>
+        /// <param name="type">The credential type to change.</param>
+        /// <param name="data">The credential data to set.</param>
+        /// <param name="sign">The password hash to confirm these changes.</param>
+        /// <param name="context">Android context.</param>
+        /// <returns>True or false whether the changes has been successful or not.</returns>
+        internal async static Task<bool> ChangeCredentials(CredentialType type, string data, string sign, Context context)
+        {
+            ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
+            long id = prefs.GetLong(PREF_USER_ID, -1);
+
+            var content = new[]
+            {
+                new KeyValuePair<string, string>("id", id.ToString()),
+                new KeyValuePair<string, string>(type.ToString("g"), data),
+                new KeyValuePair<string, string>("sign", sign)
+            };
+
+            HttpResponseMessage response = await CallWebAPI("/account/change" + type.ToString("g").ToLower(), context, content);
+            return response.IsSuccessStatusCode;
         }
 
         /// <summary>
@@ -204,62 +249,91 @@ namespace BusTrack.Utilities
         /// <param name="name">The user name.</param>
         /// <param name="email">The user email.</param>
         /// <param name="pass">The user password.</param>
-        /// <param name="context">Android context.</param>
         /// <returns>A tuple with:
         /// - Item1: Flag indicating if the registration has been successful.
         /// - Item2: The response content (Only for errors).</returns>
-        internal async static Task<Tuple<bool, string>> Register(string name, string email, string pass, Context context)
+        internal async static Task<Tuple<bool, string>> Register(string name, string email, string pass)
         {
-            using (var client = new HttpClient())
+            var content = new[]
             {
-                client.MaxResponseContentBufferSize = 256000;
-                client.Timeout = TimeSpan.FromSeconds(30);
-
-                string nPass;
-                using (var sha = SHA512.Create())
-                {
-                    string sign = EncodeURL64(sha.ComputeHash(Encoding.UTF8.GetBytes(email)));
-                    nPass = Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes(pass + sign)));
-                }
-
-                var content = new FormUrlEncodedContent(new[]
-                {
-                    new KeyValuePair<string, string>("name", name),
-                    new KeyValuePair<string, string>("email", email),
-                    new KeyValuePair<string, string>("password", nPass)
-                });
-
-                HttpResponseMessage response = await client.PostAsync(new StringBuilder(WEB_URL)
-                    .Append("/oauth/register").ToString(), content);
-
-                return new Tuple<bool, string>(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
-            }
+                new KeyValuePair<string, string>("name", name),
+                new KeyValuePair<string, string>("email", email),
+                new KeyValuePair<string, string>("password", PerformClientHash(email, pass))
+            };
+            HttpResponseMessage response = await CallWebAPI("/oauth/register", arrayContent: content);
+            return new Tuple<bool, string>(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         }
 
         /// <summary>
         /// Performs the forgot password action.
         /// </summary>
         /// <param name="email">The user email.</param>
-        /// <param name="context">Android context.</param>
         /// <returns>A tuple with:
         /// - Item1: Flag indicating if the action has been successful.
         /// - Item2: The response content (Only for errors).</returns>
-        internal async static Task<Tuple<bool, string>> Forgot(string email, Context context)
+        internal async static Task<Tuple<bool, string>> Forgot(string email)
+        {
+            var content = new[]
+            {
+                new KeyValuePair<string, string>("email", email)
+            };
+            HttpResponseMessage response = await CallWebAPI("/account/forgotpassword", arrayContent: content);
+            return new Tuple<bool, string>(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        }
+
+        /// <summary>
+        /// Performs a hash.
+        /// </summary>
+        /// <param name="salt">The hash salt.</param>
+        /// <param name="toHash">The string to hash.</param>
+        /// <returns>The string hashed.</returns>
+        internal static string PerformClientHash(string salt, string toHash)
+        {
+            using (var sha = SHA512.Create())
+            {
+                string s = EncodeURL64(sha.ComputeHash(Encoding.UTF8.GetBytes(salt)));
+                return Convert.ToBase64String(sha.ComputeHash(Encoding.UTF8.GetBytes(toHash + s)));
+            }
+        }
+
+        /// <summary>
+        /// Method in charge of performs requests to the web server.
+        /// </summary>
+        /// <param name="urlPath">The url path (excluding base url).</param>
+        /// <param name="context">Android context (default to null). If it's provided, it will be used to retrieve the user token.</param>
+        /// <param name="arrayContent">The POST content (default to null). If it's not provided, a GET request will be used instead.</param>
+        /// <returns>A HttpResponseMessage object.</returns>
+        private async static Task<HttpResponseMessage> CallWebAPI(string urlPath, Context context = null, IEnumerable<KeyValuePair<string, string>> arrayContent = null)
         {
             using (var client = new HttpClient())
             {
+                // Setup http client
                 client.MaxResponseContentBufferSize = 256000;
                 client.Timeout = TimeSpan.FromSeconds(30);
 
-                var content = new FormUrlEncodedContent(new[]
+                if (context != null)
                 {
-                    new KeyValuePair<string, string>("email", email)
-                });
+                    // Ensure there is an user logged!
+                    if (!UserLogged(context)) return new HttpResponseMessage(HttpStatusCode.Unauthorized);
 
-                HttpResponseMessage response = await client.PostAsync(new StringBuilder(WEB_URL)
-                    .Append("/account/forgotpassword").ToString(), content);
+                    ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
+                    if (!prefs.Contains(PREF_USER_TOKEN)) return new HttpResponseMessage(HttpStatusCode.Unauthorized);
 
-                return new Tuple<bool, string>(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+                    // Set token inside authenticator client
+                    client.DefaultRequestHeaders.Authorization =
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", JObject.Parse(prefs.GetString(PREF_USER_TOKEN, ""))["access_token"].ToString());
+                }
+
+                // Build URL
+                var url = new StringBuilder(WEB_URL).Append(urlPath).ToString();
+
+                // Use POST or GET
+                if (arrayContent != null)
+                {
+                    var content = new FormUrlEncodedContent(arrayContent);
+                    return await client.PostAsync(url, content);
+                }
+                else return await client.GetAsync(url);
             }
         }
 
@@ -277,6 +351,13 @@ namespace BusTrack.Utilities
 
             return s;
         }
+    }
+
+    enum CredentialType
+    {
+        Name,
+        Email,
+        Password
     }
 
     /// <summary>

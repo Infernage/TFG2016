@@ -10,7 +10,7 @@ namespace BusTrack.Data
     {
         [JsonProperty("id")]
         [ObjectId]
-        public int id { get; set; }
+        public long id { get; set; }
         [Ignored] // Just in case
         public Location location
         {

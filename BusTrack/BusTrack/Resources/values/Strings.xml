@@ -3,4 +3,6 @@
     <string name="ApplicationName">BusTrack</string>
   <string name="UsernameHint">Correo electrónico</string>
   <string name="PasswordHint">Contraseña</string>
+  <string name="Optional">Opcional</string>
+  <string name="SyncErr">Sincronización con el servidor fallida. Comprueba tu conexión a internet/de datos.</string>
 </resources>

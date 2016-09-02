@@ -44,7 +44,7 @@ namespace BusTrack
             var averageDuration = InitUI("Duración media");
             var longestDuration = InitUI("Duración más larga");
             var pollutionBus = InitUI("Contaminación ahorrada (Bus normal)"); // g CO2/km
-            var pollutionEBus = InitUI("Contaminación ahorrada (Bus eléctrico"); // g CO2/km
+            var pollutionEBus = InitUI("Contaminación ahorrada (Bus eléctrico)"); // g CO2/km
 
             await Task.Run(async () =>
                 {
@@ -52,13 +52,16 @@ namespace BusTrack
                     if (resp.Length == 0) return;
 
                     var json = JObject.Parse(resp);
-                    totalTravels.Item2.Text = json["totalTravels"].ToString();
-                    travelsDay.Item2.Text = json["travelsByDay"].ToString();
-                    mostUsedLine.Item2.Text = json["mostUsedLine"].ToString();
-                    averageDuration.Item2.Text = json["averageDuration"].ToString();
-                    longestDuration.Item2.Text = json["longestDuration"].ToString();
-                    pollutionBus.Item2.Text = json["pollutionBus"].ToString();
-                    pollutionEBus.Item2.Text = json["pollutionElectricBus"].ToString();
+                    RunOnUiThread(() =>
+                    {
+                        totalTravels.Item2.Text = json["totalTravels"].ToString();
+                        travelsDay.Item2.Text = json["travelsByDay"].ToString();
+                        mostUsedLine.Item2.Text = json["mostUsedLine"].ToString();
+                        averageDuration.Item2.Text = json["averageDuration"].ToString();
+                        longestDuration.Item2.Text = json["longestDuration"].ToString();
+                        pollutionBus.Item2.Text = json["pollutionBus"].ToString() + "g CO2/km";
+                        pollutionEBus.Item2.Text = json["pollutionElectricBus"].ToString() + "g CO2/km";
+                    });
                 });
 
             dialog.Dismiss();

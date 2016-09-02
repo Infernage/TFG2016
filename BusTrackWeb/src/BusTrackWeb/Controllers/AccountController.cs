@@ -213,14 +213,14 @@ namespace BusTrackWeb.Controllers
 
         [HttpPost]
         [Authorize]
-        public ActionResult ChangeName([FromForm] string newName, [FromForm] string sig, [FromForm] long id)
+        public ActionResult ChangeName([FromForm] string name, [FromForm] string sign, [FromForm] long id)
         {
             using (var context = new TFGContext())
             {
                 User user = GetUser(id, context);
                 if (user == null) return BadRequest("Non existent user");
-                if (!CheckSignature(sig, user, context)) return BadRequest("Bad signature"); // Check password signature before change anything
-                user.name = newName;
+                if (!CheckSignature(sign, user, context)) return BadRequest("Bad signature"); // Check password signature before change anything
+                user.name = name;
                 context.SaveChanges();
             }
             return Ok();
@@ -228,13 +228,13 @@ namespace BusTrackWeb.Controllers
 
         [HttpPost]
         [Authorize]
-        public ActionResult ChangeEmail([FromForm] string email, [FromForm] string sig, [FromForm] long id)
+        public ActionResult ChangeEmail([FromForm] string email, [FromForm] string sign, [FromForm] long id)
         {
             using (var context = new TFGContext())
             {
                 User user = GetUser(id, context);
                 if (user == null) return BadRequest("Non existent user");
-                if (!CheckSignature(sig, user, context)) return BadRequest("Bad signature"); // Check password signature before change anything
+                if (!CheckSignature(sign, user, context)) return BadRequest("Bad signature"); // Check password signature before change anything
                 user.email = email;
                 context.SaveChanges();
             }
@@ -243,13 +243,13 @@ namespace BusTrackWeb.Controllers
 
         [HttpPost]
         [Authorize]
-        public ActionResult ChangePassword([FromForm] string password, [FromForm] string sig, [FromForm] long id)
+        public ActionResult ChangePassword([FromForm] string password, [FromForm] string sign, [FromForm] long id)
         {
             using (var context = new TFGContext())
             {
                 User user = GetUser(id, context);
                 if (user == null) return BadRequest("Non existent user");
-                if (!CheckSignature(sig, user, context)) return BadRequest("Bad signature"); // Check password signature before change anything
+                if (!CheckSignature(sign, user, context)) return BadRequest("Bad signature"); // Check password signature before change anything
                 string salt = user.hash.Split(':')[0];
                 user.hash = new StringBuilder(salt).Append(':').Append(PerformHash(salt, password)).ToString(); // Save hash with this scheme-> salt:hash
                 context.SaveChanges();
@@ -259,13 +259,13 @@ namespace BusTrackWeb.Controllers
 
         [HttpPost]
         [Authorize]
-        public ActionResult Delete([FromForm] string sig, [FromForm] long id)
+        public ActionResult Delete([FromForm] string sign, [FromForm] long id)
         {
             using (var context = new TFGContext())
             {
                 User user = GetUser(id, context);
                 if (user == null) return BadRequest("Non existent user");
-                if (!CheckSignature(sig, user, context)) return BadRequest("Bad signature"); // Check password signature before change anything
+                if (!CheckSignature(sign, user, context)) return BadRequest("Bad signature"); // Check password signature before change anything
                 context.Remove(user);
                 context.SaveChanges();
             }
@@ -353,12 +353,12 @@ namespace BusTrackWeb.Controllers
             var json = new
             {
                 totalTravels = totalTravelsTask.Result,
-                travelsByDay = travelsDayTask.Result,
+                travelsByDay = Math.Round(travelsDayTask.Result, 2, MidpointRounding.AwayFromZero),
                 mostUsedLine = mostUsedLineTask.Result,
-                averageDuration = averageDurationTask.Result,
+                averageDuration = Math.Round(averageDurationTask.Result, 2, MidpointRounding.AwayFromZero),
                 longestDuration = longestDurationTask.Result,
-                pollutionBus = pollutionBusTask.Result,
-                pollutionElectricBus = pollutionEBusTask
+                pollutionBus = Math.Round(pollutionBusTask.Result, 2, MidpointRounding.AwayFromZero),
+                pollutionElectricBus = Math.Round(pollutionEBusTask.Result, 2, MidpointRounding.AwayFromZero)
             };
             return new OkObjectResult(JsonConvert.SerializeObject(json, _serializer));
         }
@@ -505,6 +505,8 @@ namespace BusTrackWeb.Controllers
                 // Give a JSON response from static DB -> (Stops - Lines - Buses)
                 var response = new
                 {
+                    lines = context.Line,
+                    stops = context.Stop,
                     line_stops = context.LineHasStop,
                     buses = context.Bus
                 };

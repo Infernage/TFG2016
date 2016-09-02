@@ -91,7 +91,7 @@ namespace BusTrack
                         return;
                     }
 
-                    Tuple<bool, string> response = await Utils.Forgot(email, this);
+                    Tuple<bool, string> response = await Utils.Forgot(email);
                     if (response.Item1)
                     {
                         Toast.MakeText(this, "Se ha enviado un correo a la dirección especificada", ToastLength.Long).Show();
@@ -154,7 +154,7 @@ namespace BusTrack
                     return;
                 }
 
-                Tuple<bool, string> response = await Utils.Register(name, email, pass, context);
+                Tuple<bool, string> response = await Utils.Register(name, email, pass);
                 if (response.Item1) Dismiss();
                 else
                 {

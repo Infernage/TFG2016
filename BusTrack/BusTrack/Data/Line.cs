@@ -17,6 +17,6 @@ namespace BusTrack.Data
         public RealmList<Stop> stops { get; }
         [JsonProperty("stops")]
         [Ignored]
-        public List<int> stopIds { get; set; }
+        public List<long> stopIds { get; set; }
     }
 }

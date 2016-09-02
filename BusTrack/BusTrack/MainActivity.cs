@@ -1,21 +1,17 @@
 ﻿using System;
 using Android.App;
 using Android.Content;
-using Android.Runtime;
 using Android.Views;
 using Android.Widget;
 using Android.OS;
-using Android.Graphics.Drawables;
-using Android.Graphics;
-using Android.Util;
 using Realms;
-using BusTrack.Utilities;
 using BusTrack.Data;
 using System.IO;
 using Newtonsoft.Json.Linq;
 using System.Linq;
 using Android.Locations;
 using System.Collections.Generic;
+using BusTrack.Utilities;
 
 namespace BusTrack
 {
@@ -23,12 +19,17 @@ namespace BusTrack
     public class MainActivity : Activity
     {
 
-        protected override void OnCreate(Bundle bundle)
+        protected async override void OnCreate(Bundle bundle)
         {
-            CheckDBIntegrity();
             base.OnCreate(bundle);
+            if (!await Utils.CheckLogin(this))
+            {
+                StartActivity(typeof(LoginActivity));
+                Finish();
+                return;
+            }
+            CheckDBIntegrity();
             RequestWindowFeature(WindowFeatures.NoTitle);
-            //ActionBar.SetBackgroundDrawable(new ColorDrawable(Color.LightBlue));
 
             // Set our view from the "main" layout resource
             SetContentView(Resource.Layout.Main);
@@ -50,6 +51,10 @@ namespace BusTrack
             view.Adapter = adapter;
 
             MenuInitializer.InitMenu(this);
+
+            TextView welcome = FindViewById<TextView>(Resource.Id.welcome);
+            string text = welcome.Text;
+            welcome.Text = text.Replace("<user>", prefs.GetString(Utils.PREF_USER_NAME, "Usuario"));
 
             Button addNetwork = FindViewById<Button>(Resource.Id.addNetwork);
             addNetwork.Click += (o, e) =>
@@ -91,9 +96,12 @@ namespace BusTrack
                 else new LineCreatorDialog(this, travelId).Show(trans, tag); // We don't know the possible lines
             }
 
-            Intent service = new Intent(this, typeof(Scanner));
-            service.AddFlags(ActivityFlags.NewTask);
-            StartService(service);
+            if (Utils.UserLogged(this))
+            {
+                Intent service = new Intent(this, typeof(Scanner));
+                service.AddFlags(ActivityFlags.NewTask);
+                StartService(service);
+            }
         }
 
         /// <summary>
@@ -116,8 +124,8 @@ namespace BusTrack
                 var stopsLines = JObject.Parse(json);
 
                 // Get each list size
-                int linesSize = (int)stopsLines["linesSize"];
-                int stopsSize = (int)stopsLines["stopsSize"];
+                long linesSize = stopsLines["linesSize"].ToObject<long>();
+                long stopsSize = stopsLines["stopsSize"].ToObject<long>();
                 if (stopsSize > stops.Count())
                 {
                     // Stop list is outdated!
@@ -131,8 +139,8 @@ namespace BusTrack
                             newStop.id = stop.id;
                             string[] location = stop.position.Split('&');
                             Location loc = new Location("");
-                            loc.Latitude = float.Parse(location[0]);
-                            loc.Longitude = float.Parse(location[1]);
+                            loc.Latitude = double.Parse(location[0]);
+                            loc.Longitude = double.Parse(location[1]);
                             newStop.location = loc;
                         }
                     });
@@ -150,7 +158,7 @@ namespace BusTrack
                             newLine.id = line.id;
                             newLine.name = line.name;
 
-                            foreach (int id in line.stopIds)
+                            foreach (long id in line.stopIds)
                             {
                                 // Get each stop
                                 Stop s = (from stop in realm.All<Stop>()

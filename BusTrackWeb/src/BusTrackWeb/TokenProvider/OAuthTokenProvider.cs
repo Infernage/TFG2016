@@ -16,7 +16,7 @@ namespace BusTrackWeb.TokenProvider
         internal static long ToUnixEpochDate(DateTime date) => (long)Math.Round((date.ToUniversalTime() - new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero)).TotalSeconds);
         internal static DateTime FromUnixEpochDate(long date) => new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(date);
         internal static ConcurrentStack<string> BlackList = new ConcurrentStack<string>();
-        
+
         /// <summary>
         /// Revokes an OAuth token (JWT or refresh token).
         /// </summary>
@@ -86,7 +86,9 @@ namespace BusTrackWeb.TokenProvider
                     access_token = encoded,
                     expires_in = (int)options.ValidFor.TotalSeconds,
                     refresh_token = refresh_token,
-                    id = user.id
+                    id = user.id,
+                    email = user.email,
+                    name = user.name
                 };
             }
         }
@@ -94,22 +96,22 @@ namespace BusTrackWeb.TokenProvider
         /// <summary>
         /// Generates an OAuth token.
         /// </summary>
-        /// <param name="username">The user email.</param>
+        /// <param name="email">The user email.</param>
         /// <param name="password">The password hashed from the android app.</param>
         /// <param name="options">The current OAuth options.</param>
         /// <param name="passHashed">Tells to the method if the password is already server-hashed.</param>
         /// <returns>An OAuth token or null if the identity couldn't be retrieved.</returns>
-        internal async static Task<object> GenerateToken(string username, string password, OAuthOptions options, bool passHashed = false)
+        internal async static Task<object> GenerateToken(string email, string password, OAuthOptions options, bool passHashed = false)
         {
             // Retrieve identity from DB
-            var identity = await GetIdentity(username, password, passHashed);
+            var identity = await GetIdentity(email, password, passHashed);
             if (identity == null)
             {
                 return null;
             }
 
             // Generate JWT
-            string encoded = await GenerateJWT(username, options);
+            string encoded = await GenerateJWT(email, options);
 
             // Create OAuth token
             var response = new
@@ -119,7 +121,9 @@ namespace BusTrackWeb.TokenProvider
                 access_token = encoded,
                 expires_in = (int)options.ValidFor.TotalSeconds,
                 refresh_token = identity.FindFirst("refreshToken").Value,
-                id = identity.FindFirst("userId").Value
+                id = identity.FindFirst("userId").Value,
+                email = email,
+                name = identity.FindFirst("userName").Value
             };
             return response;
         }
@@ -186,10 +190,15 @@ namespace BusTrackWeb.TokenProvider
                 u.Token = token;
                 context.SaveChanges();
 
-                return Task.FromResult(new ClaimsIdentity(new GenericIdentity(user, "Token"), new Claim[] { new Claim("refreshToken", token.id), new Claim("userId", u.id.ToString()) }));
+                return Task.FromResult(new ClaimsIdentity(new GenericIdentity(user, "Token"), new Claim[]
+                {
+                    new Claim("refreshToken", token.id),
+                    new Claim("userId", u.id.ToString()),
+                    new Claim("userName", u.name)
+                }));
             }
 
-            invalid:
+        invalid:
             // Invalid credentials or inexistent account
             return Task.FromResult<ClaimsIdentity>(null);
         }

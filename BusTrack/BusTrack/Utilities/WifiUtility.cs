@@ -25,7 +25,7 @@ namespace BusTrack.Utilities
             {
                 lock (results)
                 {
-                    return results;
+                    return new List<ScanResult>(results);
                 }
             }
         }

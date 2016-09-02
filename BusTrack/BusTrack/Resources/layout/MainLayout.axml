@@ -63,11 +63,11 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
         <TextView
-            android:text="Bienvenido, Usuario"
+            android:text="Bienvenido, &lt;user&gt;"
             android:textAppearance="?android:attr/textAppearanceLarge"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:id="@+id/textView1"
+            android:id="@+id/welcome"
             android:textColor="@android:color/holo_blue_dark" />
         <View
             android:layout_width="fill_parent"
