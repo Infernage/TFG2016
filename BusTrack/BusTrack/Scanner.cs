@@ -1,24 +1,23 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 using Android.App;
 using Android.Content;
+using Android.Locations;
+using Android.Net.Wifi;
 using Android.OS;
 using Android.Runtime;
-using System.Threading;
-using BusTrack.Utilities;
-using Android.Net.Wifi;
-using System.Diagnostics;
-using Android.Locations;
-using Realms;
 using BusTrack.Data;
+using BusTrack.Utilities;
+using Realms;
+using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading;
 
 namespace BusTrack
 {
     [Service]
-    class Scanner : Service
+    internal class Scanner : Service
     {
         private readonly string currentAp = "currentAp";
         private readonly string currentTravel = "currentTravel";
@@ -134,6 +133,7 @@ namespace BusTrack
         {
             return StartCommandResult.Sticky; // Always sticky!
         }
+
         public override IBinder OnBind(Intent intent)
         {
             return null;
@@ -171,6 +171,7 @@ namespace BusTrack
                 {
                     var stop = realm.CreateObject<Stop>();
                     stop.location = current;
+                    stop.GenerateID(realm);
                     nearest = stop;
                 });
             }
@@ -303,11 +304,11 @@ namespace BusTrack
                         // Create new travel
                         current = realm.CreateObject<Travel>();
                         ISharedPreferences prefs = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private);
-                        long id = prefs.GetLong(Utils.PREF_USER_ID, -1);
-                        current.userId = id != -1 ? id : null as long?;
+                        current.userId = prefs.GetLong(Utils.PREF_USER_ID, -1);
                         current.date = DateTimeOffset.Now;
                         current.bus = currentBus;
                         current.init = nearest;
+                        current.GenerateID(realm);
                         currentBus.travels.Add(current);
                     });
 
@@ -375,5 +376,6 @@ namespace BusTrack
             return current;
         }
     }
+
     #endregion functionality
 }

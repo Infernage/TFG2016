@@ -1,13 +1,12 @@
-﻿using System;
-
-using Android.App;
+﻿using Android.App;
 using Android.OS;
+using Android.Util;
 using Android.Views;
 using Android.Widget;
 using BusTrack.Utilities;
-using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
-using Android.Util;
+using System;
+using System.Threading.Tasks;
 
 namespace BusTrack
 {
@@ -67,7 +66,8 @@ namespace BusTrack
                             pollutionBus.Item2.Text = json["pollutionBus"].ToString() + "g CO2/km";
                             pollutionEBus.Item2.Text = json["pollutionElectricBus"].ToString() + "g CO2/km";
                         });
-                    } catch (Exception ex)
+                    }
+                    catch (Exception ex)
                     {
                         Log.Error(Utils.NAME_PREF, Java.Lang.Throwable.FromException(ex), "Failed to get stats!");
                         RunOnUiThread(() => Toast.MakeText(this, Resource.String.SesExp, ToastLength.Long).Show());

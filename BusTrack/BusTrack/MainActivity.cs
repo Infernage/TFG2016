@@ -1,20 +1,21 @@
-﻿using System;
-using Android.App;
+﻿using Android.App;
 using Android.Content;
+using Android.Graphics;
+using Android.Locations;
+using Android.Net.Wifi;
+using Android.OS;
 using Android.Views;
 using Android.Widget;
-using Android.OS;
-using Realms;
 using BusTrack.Data;
-using System.IO;
-using Newtonsoft.Json.Linq;
-using System.Linq;
-using Android.Locations;
-using System.Collections.Generic;
 using BusTrack.Utilities;
-using Android.Net.Wifi;
-using Android.Graphics;
-using Android.Content.Res;
+using Newtonsoft.Json.Linq;
+using Realms;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Threading;
 
 namespace BusTrack
 {
@@ -125,7 +126,7 @@ namespace BusTrack
             List<string> stored = Utils.GetNetworks(this);
             List<string> nets = new List<string>();
 
-            foreach(ScanResult res in networks)
+            foreach (ScanResult res in networks)
             {
                 if (!stored.Contains(res.Ssid)) nets.Add(res.Ssid);
             }
@@ -159,6 +160,7 @@ namespace BusTrack
                     // Stop list is outdated!
                     realm.Write(() =>
                     {
+                        var ci = CultureInfo.GetCultureInfo("en-US");
                         var jStops = stopsLines["stops"].Children();
                         foreach (JToken token in jStops)
                         {
@@ -167,8 +169,8 @@ namespace BusTrack
                             newStop.id = stop.id;
                             string[] location = stop.position.Split('&');
                             Location loc = new Location("");
-                            loc.Latitude = double.Parse(location[0]);
-                            loc.Longitude = double.Parse(location[1]);
+                            loc.Latitude = double.Parse(location[0], ci);
+                            loc.Longitude = double.Parse(location[1], ci);
                             newStop.location = loc;
                         }
                     });
@@ -207,7 +209,7 @@ namespace BusTrack
     /// <summary>
     /// Class used to display a dialog to choose bus line
     /// </summary>
-    class LineChooserDialog : DialogFragment
+    internal class LineChooserDialog : DialogFragment
     {
         private int travel;
         private int[] lines;
@@ -314,7 +316,7 @@ namespace BusTrack
     /// <summary>
     /// Class used to display a dialog to create a new bus line
     /// </summary>
-    class LineCreatorDialog : DialogFragment
+    internal class LineCreatorDialog : DialogFragment
     {
         private int travel;
         private Activity activity;
@@ -346,8 +348,7 @@ namespace BusTrack
                 builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>)null);
 
                 dialog = builder.Create();
-
-                dialog.Show(); // Just in case!
+                dialog.Show();
 
                 Button accept = dialog.GetButton((int)DialogButtonType.Positive);
                 accept.Click += (o, e) =>
@@ -402,7 +403,7 @@ namespace BusTrack
         }
     }
 
-    class NetworkListAdapter : BaseAdapter<string>
+    internal class NetworkListAdapter : BaseAdapter<string>
     {
         private List<string> stored, detected;
         private Activity context;
@@ -473,7 +474,8 @@ namespace BusTrack
                         button.SetBackgroundColor(Color.Red);
                     }
                 };
-            } else button = view.FindViewById<Button>(Resource.Id.button1);
+            }
+            else button = view.FindViewById<Button>(Resource.Id.button1);
 
             view.FindViewById<TextView>(Resource.Id.textViewAdapter).Text = this[position];
             if (IsStored(position))
@@ -522,4 +524,3 @@ namespace BusTrack
         }
     }
 }
-

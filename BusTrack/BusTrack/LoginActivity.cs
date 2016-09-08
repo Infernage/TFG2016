@@ -1,11 +1,10 @@
-using System;
-
 using Android.App;
 using Android.Content;
 using Android.OS;
-using Android.Widget;
 using Android.Support.V7.App;
+using Android.Widget;
 using BusTrack.Utilities;
+using System;
 
 namespace BusTrack
 {
@@ -94,7 +93,8 @@ namespace BusTrack
                     {
                         Toast.MakeText(this, "Introduce un correo", ToastLength.Long).Show();
                         return;
-                    } else if (!email.Contains("@"))
+                    }
+                    else if (!email.Contains("@"))
                     {
                         Toast.MakeText(this, "Introduce un correo válido", ToastLength.Long).Show();
                         return;
@@ -126,7 +126,7 @@ namespace BusTrack
     /// <summary>
     /// Class used as dialog for account creation.
     /// </summary>
-    class CreateAccountDialog : DialogFragment
+    internal class CreateAccountDialog : DialogFragment
     {
         private Context context;
 
@@ -141,7 +141,7 @@ namespace BusTrack
             var builder = new Android.App.AlertDialog.Builder(context);
             builder.SetView(Resource.Layout.AccountCreator);
             builder.SetMessage("Introduce las credenciales");
-            builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>) null);
+            builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>)null);
 
             dialog = builder.Create();
 

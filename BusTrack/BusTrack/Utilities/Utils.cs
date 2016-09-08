@@ -1,24 +1,23 @@
-using System.Linq;
-
 using Android.App;
 using Android.Content;
-using BusTrack.Data;
-using System.Net;
-using Newtonsoft.Json.Linq;
-using System.Threading.Tasks;
-using System.Net.Http;
-using System.Text;
-using System;
-using System.Collections.Generic;
-using System.Security.Cryptography;
-using Realms;
-using Android.Util;
 using Android.Gms.Maps.Model;
 using Android.Graphics;
+using Android.Util;
+using BusTrack.Data;
+using Newtonsoft.Json.Linq;
+using Realms;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace BusTrack.Utilities
 {
-    class Utils
+    public class Utils
     {
         public static readonly string PREF_USER_ID = "userID";
         public static readonly string PREF_USER_TOKEN = "userTk";
@@ -35,8 +34,10 @@ namespace BusTrack.Utilities
         internal static long ToUnixEpochDate(DateTime date) => (long)Math.Round((date.ToUniversalTime() - new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero)).TotalSeconds);
 
         private static readonly string PREF_VALID_TOKEN = "validTo";
+
         private static readonly string G_API =
             "https://maps.googleapis.com/maps/api/<apiname>/json?key=AIzaSyDVZGmOKBOdXIClT1ArDYuK3b3cGHZ6LJA&<origin>&<destination>&mode=transit&transit_mode=bus";
+
         private static readonly string API_DM = "distancematrix";
         private static readonly string API_DM_O = "origins=";
         private static readonly string API_DM_D = "destinations=";
@@ -59,9 +60,13 @@ namespace BusTrack.Utilities
         {
             string apiUrl = G_API.Replace("<apiname>", API_DM).Replace("<origin>", API_DM_O + init.locationString).Replace("<destination>", API_DM_D + end.locationString);
             WebClient client = new WebClient();
-            string json = client.DownloadString(apiUrl);
+            string str = client.DownloadString(apiUrl);
             client.Dispose();
-            var parsed = JObject.Parse(json)["rows"][0]["elements"][0];
+            var json = JObject.Parse(str);
+
+            if (!json["status"].ToString().Equals("OK")) return 0;
+
+            var parsed = json["rows"][0]["elements"][0];
             long distance = 0;
             if (parsed.Contains("distance"))
             {
@@ -77,17 +82,24 @@ namespace BusTrack.Utilities
         /// <returns>A PolylineOptions with the route.</returns>
         public static PolylineOptions GetRoute(Travel travel)
         {
-            string apiUrl = G_API.Replace("<apiname>", API_DIR).Replace("<origin>", API_DIR_O + travel.init.locationString).Replace("<destination>", API_DIR_D + travel.end.locationString);
+            string apiUrl = G_API.Replace("<apiname>", API_DIR).Replace("<origin>", API_DIR_O + travel.init.locationString).Replace("<destination>", API_DIR_D + travel.end.locationString)
+                + "&departure_time=" + ToUnixEpochDate(DateTime.SpecifyKind(travel.date.DateTime, DateTimeKind.Local));
             WebClient client = new WebClient();
             string jsonStr = client.DownloadString(apiUrl);
             client.Dispose();
             var json = JObject.Parse(jsonStr);
-            string encoded = json["routes"][0]["overview_polyline"]["points"].ToString();
+            var routes = json["routes"];
+
+            if (routes.Count() == 0) return new PolylineOptions();
+            
+            string encoded = routes[0]["overview_polyline"]["points"].ToString();
 
             List<LatLng> poly = new List<LatLng>();
             int index = 0, len = encoded.Length;
             int lat = 0, lng = 0;
 
+            // Decodes the encoded string
+            // See here: https://developers.google.com/maps/documentation/utilities/polylinealgorithm
             while (index < len)
             {
                 int b, shift = 0, result = 0;
@@ -426,7 +438,8 @@ namespace BusTrack.Utilities
                     if (checkLogin && !await CheckLogin(context))
                     {
                         throw new Exception("Relog required");
-                    } else if (!UserLogged(context)) return new HttpResponseMessage(HttpStatusCode.Unauthorized); // Ensure there is an user logged!)
+                    }
+                    else if (!UserLogged(context)) return new HttpResponseMessage(HttpStatusCode.Unauthorized); // Ensure there is an user logged!)
 
                     ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
                     if (!prefs.Contains(PREF_USER_TOKEN)) return new HttpResponseMessage(HttpStatusCode.Unauthorized);
@@ -473,7 +486,7 @@ namespace BusTrack.Utilities
         }
     }
 
-    enum CredentialType
+    internal enum CredentialType
     {
         Name,
         Email,
@@ -485,7 +498,7 @@ namespace BusTrack.Utilities
     /// </summary>
     [BroadcastReceiver]
     [IntentFilter(new[] { Intent.ActionBootCompleted }, Categories = new[] { Intent.CategoryDefault })]
-    class BootLoader : BroadcastReceiver
+    internal class BootLoader : BroadcastReceiver
     {
         public override void OnReceive(Context context, Intent intent)
         {

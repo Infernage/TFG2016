@@ -313,7 +313,8 @@ namespace BusTrackWeb.Controllers
                 using (var context = new TFGContext())
                 {
                     User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
-                    return user.Travels.Select(t => t.time).Average();
+                    var query = user.Travels.Select(t => t.time);
+                    return query.Any() ? query.Average() : 0;
                 }
             });
             Task<int> longestDurationTask = Task.Factory.StartNew(() =>
@@ -322,7 +323,8 @@ namespace BusTrackWeb.Controllers
                 using (var context = new TFGContext())
                 {
                     User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
-                    return user.Travels.Select(t => t.time).Max();
+                    var query = user.Travels.Select(t => t.time);
+                    return query.Any() ? query.Max() : 0;
                 }
             });
             Task<double> pollutionBusTask = Task.Factory.StartNew(() =>
@@ -332,7 +334,8 @@ namespace BusTrackWeb.Controllers
                 {
                     User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
                     double sub = Statistics.POLLUTION_CAR - Statistics.POLLUTION_BUS;
-                    return user.Travels.Where(t => t.distance != 0).Select(t => t.distance).Aggregate(0D, (a, b) => a + (b * sub));
+                    var query = user.Travels.Where(t => t.distance != 0);
+                    return query.Any() ? query.Select(t => t.distance).Aggregate(0D, (a, b) => a + (b * sub)) : 0;
                 }
             });
             Task<double> pollutionEBusTask = Task.Factory.StartNew(() =>
@@ -342,7 +345,8 @@ namespace BusTrackWeb.Controllers
                 {
                     User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
                     double sub = Statistics.POLLUTION_CAR - Statistics.POLLUTION_BUS_E;
-                    return user.Travels.Where(t => t.distance != 0).Select(t => t.distance).Aggregate(0D, (a, b) => a + (b * sub));
+                    var query = user.Travels.Where(t => t.distance != 0);
+                    return query.Any() ? query.Select(t => t.distance).Aggregate(0D, (a, b) => a + (b * sub)) : 0;
                 }
             });
 

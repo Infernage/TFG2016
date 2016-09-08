@@ -1,4 +1,3 @@
-
 using Android.App;
 using Android.Widget;
 using BusTrack.Utilities;
@@ -6,7 +5,7 @@ using System;
 
 namespace BusTrack
 {
-    class MenuInitializer
+    internal class MenuInitializer
     {
         public static void InitMenu(Activity current)
         {
@@ -23,7 +22,8 @@ namespace BusTrack
             main.Click += evt;
             main.Click += (sender, e) =>
             {
-                if (!(current is MainActivity)) {
+                if (!(current is MainActivity))
+                {
                     current.StartActivity(typeof(MainActivity));
                     current.Finish();
                 }
@@ -34,7 +34,8 @@ namespace BusTrack
             stats.Click += evt;
             stats.Click += (sender, e) =>
             {
-                if (!(current is StatsActivity)) {
+                if (!(current is StatsActivity))
+                {
                     current.StartActivity(typeof(StatsActivity));
                     current.Finish();
                 }

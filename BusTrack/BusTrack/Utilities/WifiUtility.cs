@@ -1,21 +1,18 @@
-using System.Collections.Generic;
 using Android.Content;
 using Android.Net.Wifi;
+using System.Collections.Generic;
 using System.Threading;
-using Android.Net;
-using Android.App;
 using System.Threading.Tasks;
 
 namespace BusTrack.Utilities
 {
-    class WifiUtility : BroadcastReceiver
+    internal class WifiUtility : BroadcastReceiver
     {
         public delegate void UpdateEventHandler(List<ScanResult> networks);
+
         public static event UpdateEventHandler UpdateNetworks;
 
         private WifiManager wifi;
-        private ConnectivityManager connectivity;
-        private NotificationManager notificator;
         private List<ScanResult> results = new List<ScanResult>();
         private AutoResetEvent handle;
         private Context mContext;
@@ -43,10 +40,7 @@ namespace BusTrack.Utilities
             mContext = context;
             handle = evt;
             wifi = context.GetSystemService(Context.WifiService) as WifiManager;
-            connectivity = context.GetSystemService(Context.ConnectivityService) as ConnectivityManager;
-            notificator = context.GetSystemService(Context.NotificationService) as NotificationManager;
             context.RegisterReceiver(this, new IntentFilter(WifiManager.ScanResultsAvailableAction));
-            context.RegisterReceiver(this, new IntentFilter(ConnectivityManager.ConnectivityAction));
         }
 
         /// <summary>
@@ -54,14 +48,11 @@ namespace BusTrack.Utilities
         /// </summary>
         public void StartScan()
         {
-            if (CheckState()) wifi.StartScan();
+            wifi.StartScan();
         }
 
         public override void OnReceive(Context context, Intent intent)
         {
-            // Check if WiFi is enabled
-            if (!CheckState()) return;
-
             // Avoid concurrency issues!
             lock (results)
             {
@@ -77,36 +68,6 @@ namespace BusTrack.Utilities
              if (handler != null) handler(results);
              */
             Task.Run(() => UpdateNetworks?.Invoke(results));
-        }
-
-        private bool CheckState()
-        {
-            if (!connectivity.ActiveNetworkInfo.IsConnected)
-            {
-                // Send notification to the user
-                Notification.Builder builder = new Notification.Builder(mContext);
-                builder.SetSmallIcon(Android.Resource.Drawable.IcDialogAlert);
-
-                builder.SetContentText("Por favor, vuelve a activar el WiFi.");
-                builder.SetContentTitle("WiFi desactivado");
-
-                builder.SetDefaults(NotificationDefaults.Sound | NotificationDefaults.Vibrate);
-
-                Intent opts = new Intent(Android.Provider.Settings.ActionWifiSettings);
-                PendingIntent wifiOpts = PendingIntent.GetActivity(mContext, 0, opts, PendingIntentFlags.OneShot);
-                builder.SetContentIntent(wifiOpts);
-
-                if ((int)Android.OS.Build.VERSION.SdkInt >= 21)
-                {
-                    builder.SetCategory(Notification.CategoryError);
-                    builder.SetVisibility(NotificationVisibility.Public);
-                }
-
-                Notification notif = builder.Build();
-                notificator.Notify(0, notif);
-                return false;
-            }
-            else return true;
         }
     }
 }

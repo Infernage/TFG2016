@@ -1,45 +1,38 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-using Android.App;
+using Android.Animation;
 using Android.Content;
-using Android.OS;
+using Android.Graphics;
+using Android.Graphics.Drawables;
 using Android.Runtime;
 using Android.Util;
 using Android.Views;
 using Android.Widget;
-using Android.Animation;
-using Android.Views.Animations;
-using Android.Graphics;
-using Android.Graphics.Drawables;
+using System;
 
 namespace BusTrack
 {
     public class FlyOutContainer : FrameLayout
     {
-        bool opened;
-        int contentOffsetX;
-        ValueAnimator animator;
-        ITimeInterpolator interpolator = new SmoothInterpolator();
-        VelocityTracker velocityTracker;
-        bool stateBeforeTracking;
-        bool isTracking;
-        bool preTracking;
-        int startX = -1, startY = -1;
+        private bool opened;
+        private int contentOffsetX;
+        private ValueAnimator animator;
+        private ITimeInterpolator interpolator = new SmoothInterpolator();
+        private VelocityTracker velocityTracker;
+        private bool stateBeforeTracking;
+        private bool isTracking;
+        private bool preTracking;
+        private int startX = -1, startY = -1;
 
-        const int BezelArea = 30; //dip
-        const int MaxOverlayAlpha = 170;
-        const float ParallaxSpeedRatio = 0.25f;
+        private const int BezelArea = 30; //dip
+        private const int MaxOverlayAlpha = 170;
+        private const float ParallaxSpeedRatio = 0.25f;
 
-        int touchSlop;
-        int pagingTouchSlop;
-        int minFlingVelocity;
-        int maxFlingVelocity;
+        private int touchSlop;
+        private int pagingTouchSlop;
+        private int minFlingVelocity;
+        private int maxFlingVelocity;
 
-        GradientDrawable shadowDrawable;
-        Paint overlayPaint;
+        private GradientDrawable shadowDrawable;
+        private Paint overlayPaint;
 
         public FlyOutContainer(Context context) :
             base(context)
@@ -59,7 +52,7 @@ namespace BusTrack
             Initialize();
         }
 
-        void Initialize()
+        private void Initialize()
         {
             var config = ViewConfiguration.Get(Context);
             touchSlop = config.ScaledTouchSlop;
@@ -80,7 +73,7 @@ namespace BusTrack
             };
         }
 
-        View ContentView
+        private View ContentView
         {
             get
             {
@@ -88,7 +81,7 @@ namespace BusTrack
             }
         }
 
-        View MenuView
+        private View MenuView
         {
             get
             {
@@ -96,7 +89,7 @@ namespace BusTrack
             }
         }
 
-        int MaxOffset
+        private int MaxOffset
         {
             get
             {
@@ -149,7 +142,7 @@ namespace BusTrack
             }
         }
 
-        void SetNewOffset(int newOffset)
+        private void SetNewOffset(int newOffset)
         {
             var oldOffset = contentOffsetX;
             contentOffsetX = Math.Min(Math.Max(0, newOffset), MaxOffset);
@@ -162,7 +155,7 @@ namespace BusTrack
             Invalidate();
         }
 
-        void UpdateParallax()
+        private void UpdateParallax()
         {
             var openness = ((float)(MaxOffset - contentOffsetX)) / MaxOffset;
             MenuView.OffsetLeftAndRight((int)(-openness * MaxOffset * ParallaxSpeedRatio) - MenuView.Left);
@@ -217,7 +210,7 @@ namespace BusTrack
             return true;
         }
 
-        bool CaptureMovementCheck(MotionEvent ev)
+        private bool CaptureMovementCheck(MotionEvent ev)
         {
             if (ev.Action == MotionEventActions.Down)
             {
@@ -246,7 +239,6 @@ namespace BusTrack
 
             if (ev.Action == MotionEventActions.Move)
             {
-
                 // Check we are going in the right direction, if not cancel the current gesture
                 if (!MoveDirectionTest(ev))
                 {
@@ -268,7 +260,7 @@ namespace BusTrack
         }
 
         // Check that movement is in a common vertical area and that we are going in the right direction
-        bool MoveDirectionTest(MotionEvent e)
+        private bool MoveDirectionTest(MotionEvent e)
         {
             return (stateBeforeTracking ? e.GetX() <= startX : e.GetX() >= startX)
                 && Math.Abs(e.GetY() - startY) < touchSlop;
@@ -301,7 +293,7 @@ namespace BusTrack
             }
         }
 
-        class SmoothInterpolator : Java.Lang.Object, ITimeInterpolator
+        private class SmoothInterpolator : Java.Lang.Object, ITimeInterpolator
         {
             public float GetInterpolation(float input)
             {
@@ -310,9 +302,9 @@ namespace BusTrack
         }
     }
 
-    static class DensityExtensions
+    internal static class DensityExtensions
     {
-        static readonly DisplayMetrics displayMetrics = new DisplayMetrics();
+        private static readonly DisplayMetrics displayMetrics = new DisplayMetrics();
 
         public static int ToPixels(this Context ctx, int dp)
         {

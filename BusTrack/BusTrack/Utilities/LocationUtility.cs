@@ -1,17 +1,17 @@
 using Android.Content;
-using Android.OS;
-using Android.Gms.Common.Apis;
 using Android.Gms.Common;
-using Android.Locations;
+using Android.Gms.Common.Apis;
 using Android.Gms.Location;
+using Android.Locations;
+using Android.OS;
 
 namespace BusTrack.Utilities
 {
-    class LocationUtility : Java.Lang.Object, GoogleApiClient.IConnectionCallbacks, GoogleApiClient.IOnConnectionFailedListener, Android.Gms.Location.ILocationListener
+    internal class LocationUtility : Java.Lang.Object, GoogleApiClient.IConnectionCallbacks, GoogleApiClient.IOnConnectionFailedListener, Android.Gms.Location.ILocationListener
     {
         private GoogleApiClient clientLocation;
         private Location last;
-        
+
         /// <summary>
         /// Retreives the last known location from GPS/network
         /// </summary>
@@ -36,7 +36,7 @@ namespace BusTrack.Utilities
         {
             if (!clientLocation.IsConnected) clientLocation.Connect();
         }
-    
+
         /// <summary>
         /// Disconnects from the GoogleApiClient
         /// </summary>

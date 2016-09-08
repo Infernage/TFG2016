@@ -1,16 +1,15 @@
-using System;
-using System.Linq;
-
 using Android.App;
 using Android.Content;
 using Android.OS;
+using Android.Util;
 using Android.Views;
 using Android.Widget;
-using Realms;
-using BusTrack.Utilities;
 using BusTrack.Data;
+using BusTrack.Utilities;
+using Realms;
+using System;
+using System.Linq;
 using System.Threading.Tasks;
-using Android.Util;
 
 namespace BusTrack
 {
@@ -96,7 +95,8 @@ namespace BusTrack
                         {
                             Toast.MakeText(this, "Fallo al borrar la cuenta", ToastLength.Long).Show();
                         }
-                    } catch (Exception ex)
+                    }
+                    catch (Exception ex)
                     {
                         Log.Error(Utils.NAME_PREF, Java.Lang.Throwable.FromException(ex), "Delete failed!");
                         RunOnUiThread(() => Toast.MakeText(this, Resource.String.SesExp, ToastLength.Long).Show());
@@ -113,7 +113,7 @@ namespace BusTrack
         }
     }
 
-    class AccountModifierDialog : DialogFragment
+    internal class AccountModifierDialog : DialogFragment
     {
         private Context context;
 
@@ -213,7 +213,8 @@ namespace BusTrack
                         }
                         edit.Commit();
                         dialog.Dismiss();
-                    } catch (Exception ex)
+                    }
+                    catch (Exception ex)
                     {
                         Log.Error(Utils.NAME_PREF, Java.Lang.Throwable.FromException(ex), "Change credentials failed!");
                         Activity.RunOnUiThread(() =>
