@@ -18,8 +18,6 @@ namespace BusTrack
 
             SetContentView(Resource.Layout.Login);
 
-            //MenuInitializer.InitMenu(this);
-
             Button loginB = FindViewById<Button>(Resource.Id.loginButton);
             Button createB = FindViewById<Button>(Resource.Id.createAccButton);
             Button forgotB = FindViewById<Button>(Resource.Id.forgotButton);
@@ -29,6 +27,13 @@ namespace BusTrack
             // Login button
             loginB.Click += async (o, e) =>
             {
+                ProgressDialog dialog = new ProgressDialog(this);
+                dialog.Indeterminate = true;
+                dialog.SetProgressStyle(ProgressDialogStyle.Spinner);
+                dialog.SetMessage("Espere por favor...");
+                dialog.SetCancelable(false);
+                dialog.Show();
+
                 loginB.Enabled = false;
                 string pswd = passF.Text;
                 passF.Text = "";
@@ -38,10 +43,13 @@ namespace BusTrack
                 {
                     StartActivity(typeof(MainActivity));
                     Finish();
+                    dialog.Dismiss();
                 }
                 else
                 {
                     loginB.Enabled = true;
+                    dialog.Dismiss();
+                    Toast.MakeText(this, "Identificación fallida", ToastLength.Long).Show();
                 }
             };
 
@@ -81,6 +89,7 @@ namespace BusTrack
                 {
                     string email = input.Text;
 
+                    // Validate email
                     if (string.IsNullOrWhiteSpace(email))
                     {
                         Toast.MakeText(this, "Introduce un correo", ToastLength.Long).Show();
@@ -90,6 +99,10 @@ namespace BusTrack
                         Toast.MakeText(this, "Introduce un correo válido", ToastLength.Long).Show();
                         return;
                     }
+
+                    // Disable button until get a response
+                    accept.Enabled = false;
+                    accept.Text = "Espere por favor";
 
                     Tuple<bool, string> response = await Utils.Forgot(email);
                     if (response.Item1)
@@ -101,6 +114,10 @@ namespace BusTrack
                     {
                         Toast.MakeText(this, response.Item2, ToastLength.Long).Show();
                     }
+
+                    // Reactivate button
+                    accept.Enabled = true;
+                    accept.Text = "Aceptar";
                 };
             };
         }
@@ -137,6 +154,7 @@ namespace BusTrack
                     email = dialog.FindViewById<EditText>(Resource.Id.acEmailF).Text,
                     pass = dialog.FindViewById<EditText>(Resource.Id.acPassF).Text;
 
+                // Validate fields
                 if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email)
                     || string.IsNullOrWhiteSpace(pass))
                 {
@@ -154,12 +172,20 @@ namespace BusTrack
                     return;
                 }
 
+                // Disable button until get a response
+                accept.Enabled = false;
+                accept.Text = "Espere por favor";
+
                 Tuple<bool, string> response = await Utils.Register(name, email, pass);
                 if (response.Item1) Dismiss();
                 else
                 {
                     Toast.MakeText(context, response.Item2, ToastLength.Long).Show();
                 }
+
+                // Reactivate button
+                accept.Text = "Aceptar";
+                accept.Enabled = true;
             };
 
             return dialog;

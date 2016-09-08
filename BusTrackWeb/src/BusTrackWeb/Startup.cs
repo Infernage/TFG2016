@@ -189,7 +189,7 @@ namespace BusTrackWeb
                         {
                             Line = newLine,
                             Stop = s,
-                            previous = last != null ? last.Stop.id : 0
+                            previous = last != null ? last.Stop.id : null as long?
                         };
                         if (last != null) last.next = s.id;
                         newLine.LineStops.Add(ls);

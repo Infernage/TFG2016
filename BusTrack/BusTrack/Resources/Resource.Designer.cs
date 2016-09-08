@@ -1825,8 +1825,8 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b0072
 			public const int FlyOutContent = 2131427442;
 			
-			// aapt resource value: 0x7f0b007b
-			public const int FlyOutMenu = 2131427451;
+			// aapt resource value: 0x7f0b007d
+			public const int FlyOutMenu = 2131427453;
 			
 			// aapt resource value: 0x7f0b0074
 			public const int MenuButton = 2131427444;
@@ -1840,8 +1840,8 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b0060
 			public const int acPassF = 2131427424;
 			
-			// aapt resource value: 0x7f0b0089
-			public const int action0 = 2131427465;
+			// aapt resource value: 0x7f0b008b
+			public const int action0 = 2131427467;
 			
 			// aapt resource value: 0x7f0b004c
 			public const int action_bar = 2131427404;
@@ -1867,8 +1867,8 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b004d
 			public const int action_context_bar = 2131427405;
 			
-			// aapt resource value: 0x7f0b008d
-			public const int action_divider = 2131427469;
+			// aapt resource value: 0x7f0b008f
+			public const int action_divider = 2131427471;
 			
 			// aapt resource value: 0x7f0b0002
 			public const int action_menu_divider = 2131427330;
@@ -1921,23 +1921,23 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b0024
 			public const int beginning = 2131427364;
 			
-			// aapt resource value: 0x7f0b00a5
-			public const int button1 = 2131427493;
+			// aapt resource value: 0x7f0b00a6
+			public const int button1 = 2131427494;
 			
 			// aapt resource value: 0x7f0b0036
 			public const int buttonPanel = 2131427382;
 			
-			// aapt resource value: 0x7f0b008a
-			public const int cancel_action = 2131427466;
+			// aapt resource value: 0x7f0b008c
+			public const int cancel_action = 2131427468;
 			
 			// aapt resource value: 0x7f0b0044
 			public const int checkbox = 2131427396;
 			
-			// aapt resource value: 0x7f0b0090
-			public const int chronometer = 2131427472;
+			// aapt resource value: 0x7f0b0092
+			public const int chronometer = 2131427474;
 			
-			// aapt resource value: 0x7f0b0097
-			public const int clearButton = 2131427479;
+			// aapt resource value: 0x7f0b0098
+			public const int clearButton = 2131427480;
 			
 			// aapt resource value: 0x7f0b0028
 			public const int collapseActionView = 2131427368;
@@ -1957,17 +1957,14 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b0014
 			public const int dark = 2131427348;
 			
-			// aapt resource value: 0x7f0b0096
-			public const int dataLimit = 2131427478;
-			
 			// aapt resource value: 0x7f0b004a
 			public const int decor_content_parent = 2131427402;
 			
 			// aapt resource value: 0x7f0b0032
 			public const int default_activity_button = 2131427378;
 			
-			// aapt resource value: 0x7f0b009a
-			public const int deleteAccount = 2131427482;
+			// aapt resource value: 0x7f0b009b
+			public const int deleteAccount = 2131427483;
 			
 			// aapt resource value: 0x7f0b0018
 			public const int disableHome = 2131427352;
@@ -1987,8 +1984,8 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b0025
 			public const int end = 2131427365;
 			
-			// aapt resource value: 0x7f0b0095
-			public const int end_padder = 2131427477;
+			// aapt resource value: 0x7f0b0097
+			public const int end_padder = 2131427479;
 			
 			// aapt resource value: 0x7f0b0030
 			public const int expand_activities_button = 2131427376;
@@ -2008,6 +2005,9 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b0019
 			public const int homeAsUp = 2131427353;
 			
+			// aapt resource value: 0x7f0b007a
+			public const int horizontalScrollView1 = 2131427450;
+			
 			// aapt resource value: 0x7f0b0009
 			public const int hybrid = 2131427337;
 			
@@ -2023,32 +2023,32 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b0031
 			public const int image = 2131427377;
 			
-			// aapt resource value: 0x7f0b007d
-			public const int imageView1 = 2131427453;
-			
 			// aapt resource value: 0x7f0b007f
-			public const int imageView2 = 2131427455;
+			public const int imageView1 = 2131427455;
 			
 			// aapt resource value: 0x7f0b0081
-			public const int imageView3 = 2131427457;
+			public const int imageView2 = 2131427457;
 			
 			// aapt resource value: 0x7f0b0083
-			public const int imageView4 = 2131427459;
+			public const int imageView3 = 2131427459;
 			
-			// aapt resource value: 0x7f0b0087
-			public const int imageView5 = 2131427463;
+			// aapt resource value: 0x7f0b0085
+			public const int imageView4 = 2131427461;
 			
-			// aapt resource value: 0x7f0b0094
-			public const int info = 2131427476;
+			// aapt resource value: 0x7f0b0089
+			public const int imageView5 = 2131427465;
+			
+			// aapt resource value: 0x7f0b0096
+			public const int info = 2131427478;
 			
 			// aapt resource value: 0x7f0b0015
 			public const int light = 2131427349;
 			
-			// aapt resource value: 0x7f0b008e
-			public const int line1 = 2131427470;
+			// aapt resource value: 0x7f0b0090
+			public const int line1 = 2131427472;
 			
-			// aapt resource value: 0x7f0b0092
-			public const int line3 = 2131427474;
+			// aapt resource value: 0x7f0b0094
+			public const int line3 = 2131427476;
 			
 			// aapt resource value: 0x7f0b0065
 			public const int linearLayout1 = 2131427429;
@@ -2068,23 +2068,23 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b006e
 			public const int loginButton = 2131427438;
 			
-			// aapt resource value: 0x7f0b0086
-			public const int logout = 2131427462;
+			// aapt resource value: 0x7f0b0088
+			public const int logout = 2131427464;
+			
+			// aapt resource value: 0x7f0b007e
+			public const int mainView = 2131427454;
 			
 			// aapt resource value: 0x7f0b007c
-			public const int mainView = 2131427452;
+			public const int map = 2131427452;
 			
-			// aapt resource value: 0x7f0b007a
-			public const int map = 2131427450;
-			
-			// aapt resource value: 0x7f0b008c
-			public const int media_actions = 2131427468;
+			// aapt resource value: 0x7f0b008e
+			public const int media_actions = 2131427470;
 			
 			// aapt resource value: 0x7f0b0026
 			public const int middle = 2131427366;
 			
-			// aapt resource value: 0x7f0b0099
-			public const int modifyAccount = 2131427481;
+			// aapt resource value: 0x7f0b009a
+			public const int modifyAccount = 2131427482;
 			
 			// aapt resource value: 0x7f0b001f
 			public const int multiply = 2131427359;
@@ -2104,29 +2104,29 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b006d
 			public const int passField = 2131427437;
 			
-			// aapt resource value: 0x7f0b009d
-			public const int place_autocomplete_clear_button = 2131427485;
-			
-			// aapt resource value: 0x7f0b009f
-			public const int place_autocomplete_powered_by_google = 2131427487;
-			
-			// aapt resource value: 0x7f0b00a1
-			public const int place_autocomplete_prediction_primary_text = 2131427489;
-			
-			// aapt resource value: 0x7f0b00a2
-			public const int place_autocomplete_prediction_secondary_text = 2131427490;
+			// aapt resource value: 0x7f0b009e
+			public const int place_autocomplete_clear_button = 2131427486;
 			
 			// aapt resource value: 0x7f0b00a0
-			public const int place_autocomplete_progress = 2131427488;
+			public const int place_autocomplete_powered_by_google = 2131427488;
 			
-			// aapt resource value: 0x7f0b009b
-			public const int place_autocomplete_search_button = 2131427483;
+			// aapt resource value: 0x7f0b00a2
+			public const int place_autocomplete_prediction_primary_text = 2131427490;
+			
+			// aapt resource value: 0x7f0b00a3
+			public const int place_autocomplete_prediction_secondary_text = 2131427491;
+			
+			// aapt resource value: 0x7f0b00a1
+			public const int place_autocomplete_progress = 2131427489;
 			
 			// aapt resource value: 0x7f0b009c
-			public const int place_autocomplete_search_input = 2131427484;
+			public const int place_autocomplete_search_button = 2131427484;
 			
-			// aapt resource value: 0x7f0b009e
-			public const int place_autocomplete_separator = 2131427486;
+			// aapt resource value: 0x7f0b009d
+			public const int place_autocomplete_search_input = 2131427485;
+			
+			// aapt resource value: 0x7f0b009f
+			public const int place_autocomplete_separator = 2131427487;
 			
 			// aapt resource value: 0x7f0b0005
 			public const int progress_circular = 2131427333;
@@ -2140,8 +2140,8 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b0068
 			public const int radioGroup1 = 2131427432;
 			
-			// aapt resource value: 0x7f0b007e
-			public const int recentStats = 2131427454;
+			// aapt resource value: 0x7f0b0080
+			public const int recentStats = 2131427456;
 			
 			// aapt resource value: 0x7f0b000c
 			public const int satellite = 2131427340;
@@ -2200,11 +2200,11 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b001b
 			public const int showHome = 2131427355;
 			
-			// aapt resource value: 0x7f0b0080
-			public const int showMap = 2131427456;
-			
 			// aapt resource value: 0x7f0b0082
-			public const int showOptions = 2131427458;
+			public const int showMap = 2131427458;
+			
+			// aapt resource value: 0x7f0b0084
+			public const int showOptions = 2131427460;
 			
 			// aapt resource value: 0x7f0b001c
 			public const int showTitle = 2131427356;
@@ -2227,8 +2227,8 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b0011
 			public const int standard = 2131427345;
 			
-			// aapt resource value: 0x7f0b008b
-			public const int status_bar_latest_event_content = 2131427467;
+			// aapt resource value: 0x7f0b008d
+			public const int status_bar_latest_event_content = 2131427469;
 			
 			// aapt resource value: 0x7f0b0057
 			public const int submit_area = 2131427415;
@@ -2236,17 +2236,17 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b0017
 			public const int tabMode = 2131427351;
 			
-			// aapt resource value: 0x7f0b00a3
-			public const int tableLayout1 = 2131427491;
+			// aapt resource value: 0x7f0b00a4
+			public const int tableLayout1 = 2131427492;
 			
 			// aapt resource value: 0x7f0b000d
 			public const int terrain = 2131427341;
 			
-			// aapt resource value: 0x7f0b0093
-			public const int text = 2131427475;
+			// aapt resource value: 0x7f0b0095
+			public const int text = 2131427477;
 			
-			// aapt resource value: 0x7f0b0091
-			public const int text2 = 2131427473;
+			// aapt resource value: 0x7f0b0093
+			public const int text2 = 2131427475;
 			
 			// aapt resource value: 0x7f0b003f
 			public const int textSpacerNoButtons = 2131427391;
@@ -2263,17 +2263,17 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b0066
 			public const int textView4 = 2131427430;
 			
-			// aapt resource value: 0x7f0b0084
-			public const int textView5 = 2131427460;
+			// aapt resource value: 0x7f0b0086
+			public const int textView5 = 2131427462;
 			
-			// aapt resource value: 0x7f0b0088
-			public const int textView6 = 2131427464;
+			// aapt resource value: 0x7f0b008a
+			public const int textView6 = 2131427466;
 			
-			// aapt resource value: 0x7f0b00a4
-			public const int textViewAdapter = 2131427492;
+			// aapt resource value: 0x7f0b00a5
+			public const int textViewAdapter = 2131427493;
 			
-			// aapt resource value: 0x7f0b008f
-			public const int time = 2131427471;
+			// aapt resource value: 0x7f0b0091
+			public const int time = 2131427473;
 			
 			// aapt resource value: 0x7f0b0035
 			public const int title = 2131427381;
@@ -2283,6 +2283,9 @@ namespace BusTrack
 			
 			// aapt resource value: 0x7f0b0039
 			public const int topPanel = 2131427385;
+			
+			// aapt resource value: 0x7f0b007b
+			public const int travelsLayout = 2131427451;
 			
 			// aapt resource value: 0x7f0b0008
 			public const int up = 2131427336;
@@ -2299,11 +2302,11 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b0075
 			public const int view3 = 2131427445;
 			
-			// aapt resource value: 0x7f0b0098
-			public const int view4 = 2131427480;
+			// aapt resource value: 0x7f0b0099
+			public const int view4 = 2131427481;
 			
-			// aapt resource value: 0x7f0b0085
-			public const int view5 = 2131427461;
+			// aapt resource value: 0x7f0b0087
+			public const int view5 = 2131427463;
 			
 			// aapt resource value: 0x7f0b0078
 			public const int welcome = 2131427448;
@@ -2550,6 +2553,9 @@ namespace BusTrack
 			
 			// aapt resource value: 0x7f070037
 			public const int PasswordHint = 2131165239;
+			
+			// aapt resource value: 0x7f07003a
+			public const int SesExp = 2131165242;
 			
 			// aapt resource value: 0x7f070039
 			public const int SyncErr = 2131165241;

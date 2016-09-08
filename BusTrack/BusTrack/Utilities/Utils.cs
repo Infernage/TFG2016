@@ -7,23 +7,23 @@ using System.Net;
 using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
 using System.Net.Http;
-using Newtonsoft.Json;
 using System.Text;
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using Realms;
+using Android.Util;
+using Android.Gms.Maps.Model;
+using Android.Graphics;
 
 namespace BusTrack.Utilities
 {
     class Utils
     {
-        public static readonly string PREF_DATA_LIMIT = "limitData";
         public static readonly string PREF_USER_ID = "userID";
         public static readonly string PREF_USER_TOKEN = "userTk";
         public static readonly string PREF_USER_NAME = "userName";
         public static readonly string PREF_USER_EMAIL = "userEmail";
-        public static readonly string PREF_NETWORKS = "networks";
         public static readonly string NAME_PREF = "BusTrack";
 
         public static readonly string NAME_LCHOOSER = "LineChooser";
@@ -35,27 +35,115 @@ namespace BusTrack.Utilities
         internal static long ToUnixEpochDate(DateTime date) => (long)Math.Round((date.ToUniversalTime() - new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero)).TotalSeconds);
 
         private static readonly string PREF_VALID_TOKEN = "validTo";
-        private static readonly string DISTANCE_MATRIX =
-            "https://maps.googleapis.com/maps/api/distancematrix/json?key=AIzaSyDVZGmOKBOdXIClT1ArDYuK3b3cGHZ6LJA&origins=<->origin<->&destinations=<->destination<->&mode=transit&transit_mode=bus";
+        private static readonly string G_API =
+            "https://maps.googleapis.com/maps/api/<apiname>/json?key=AIzaSyDVZGmOKBOdXIClT1ArDYuK3b3cGHZ6LJA&<origin>&<destination>&mode=transit&transit_mode=bus";
+        private static readonly string API_DM = "distancematrix";
+        private static readonly string API_DM_O = "origins=";
+        private static readonly string API_DM_D = "destinations=";
+        private static readonly string API_DIR = "directions";
+        private static readonly string API_DIR_O = "origin=";
+        private static readonly string API_DIR_D = "destination=";
         private static char base64PadCharacter = '=';
         private static char base64Character62 = '+';
         private static char base64Character63 = '/';
         private static char base64UrlCharacter62 = '-';
-        private static char _base64UrlCharacter63 = '_';
+        private static char base64UrlCharacter63 = '_';
 
+        /// <summary>
+        /// Gets the distance between 2 stops.
+        /// </summary>
+        /// <param name="init">The initial stop.</param>
+        /// <param name="end">The final stop.</param>
+        /// <returns>The distance in meters.</returns>
         public static long GetDistance(Stop init, Stop end)
         {
-            string apiUrl = DISTANCE_MATRIX.Replace("<->origin<->", init.locationString).Replace("<->destination<->", end.locationString);
+            string apiUrl = G_API.Replace("<apiname>", API_DM).Replace("<origin>", API_DM_O + init.locationString).Replace("<destination>", API_DM_D + end.locationString);
             WebClient client = new WebClient();
             string json = client.DownloadString(apiUrl);
             client.Dispose();
-            var parsed = JObject.Parse(json)["rows"].Children().First()["elements"].Children().First();
+            var parsed = JObject.Parse(json)["rows"][0]["elements"][0];
             long distance = 0;
             if (parsed.Contains("distance"))
             {
-                distance = parsed["distance"]["value"].Value<long>();
+                distance = parsed["distance"]["value"].ToObject<long>();
             }
             return distance;
+        }
+
+        /// <summary>
+        /// Gets a route inside a travel.
+        /// </summary>
+        /// <param name="travel">The travel to get a route</param>
+        /// <returns>A PolylineOptions with the route.</returns>
+        public static PolylineOptions GetRoute(Travel travel)
+        {
+            string apiUrl = G_API.Replace("<apiname>", API_DIR).Replace("<origin>", API_DIR_O + travel.init.locationString).Replace("<destination>", API_DIR_D + travel.end.locationString);
+            WebClient client = new WebClient();
+            string jsonStr = client.DownloadString(apiUrl);
+            client.Dispose();
+            var json = JObject.Parse(jsonStr);
+            string encoded = json["routes"][0]["overview_polyline"]["points"].ToString();
+
+            List<LatLng> poly = new List<LatLng>();
+            int index = 0, len = encoded.Length;
+            int lat = 0, lng = 0;
+
+            while (index < len)
+            {
+                int b, shift = 0, result = 0;
+                do
+                {
+                    b = encoded[index++] - 63;
+                    result |= (b & 0x1f) << shift;
+                    shift += 5;
+                } while (b >= 0x20);
+                int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+                lat += dlat;
+
+                shift = 0;
+                result = 0;
+                do
+                {
+                    b = encoded[index++] - 63;
+                    result |= (b & 0x1f) << shift;
+                    shift += 5;
+                } while (b >= 0x20);
+                int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+                lng += dlng;
+
+                LatLng p = new LatLng(lat / 1E5, lng / 1E5);
+                poly.Add(p);
+            }
+
+            return new PolylineOptions().AddAll(new Java.Util.ArrayList(poly.ToArray())).InvokeWidth(12).InvokeColor(Color.ParseColor("#05b1fb")).Geodesic(true);
+        }
+
+        /// <summary>
+        /// Helper method to get user networks.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <returns>A list with all stored user networks.</returns>
+        public static List<string> GetNetworks(Context context)
+        {
+            if (!UserLogged(context)) return new List<string>();
+
+            ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
+            return prefs.GetStringSet("networks" + prefs.GetLong(PREF_USER_ID, -1).ToString(), new List<string>()).ToList();
+        }
+
+        /// <summary>
+        /// Helper method to set user networks.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <param name="networks">The new list with user networks.</param>
+        public static void SetNetworks(Context context, List<string> networks)
+        {
+            if (!UserLogged(context)) return;
+
+            ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
+            ISharedPreferencesEditor edit = prefs.Edit();
+            edit.PutStringSet("networks" + prefs.GetLong(PREF_USER_ID, -1).ToString(), networks);
+            edit.Commit();
         }
 
         /// <summary>
@@ -72,12 +160,13 @@ namespace BusTrack.Utilities
             if (prefs.GetLong(PREF_VALID_TOKEN, 0) > ToUnixEpochDate(DateTime.Now)) return true;
 
             // 2-> Check if user token is valid with web server
-            if ((await CallWebAPI("/oauth/check", context)).IsSuccessStatusCode) return true;
+            if ((await CallWebAPI("/oauth/check", context, checkLogin: false)).IsSuccessStatusCode) return true;
 
             // 3-> User token expired, refresh it!
             if (await Refresh(context)) return true;
 
             // 4-> Refreh token expired too, request a new login!
+            Logout(context);
             return false;
         }
 
@@ -152,34 +241,6 @@ namespace BusTrack.Utilities
         }
 
         /// <summary>
-        /// Refreshes the user token.
-        /// </summary>
-        /// <param name="context">Android context.</param>
-        /// <returns>True or false depending if the action was successful or not.</returns>
-        public async static Task<bool> Refresh(Context context)
-        {
-            ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
-            string token = prefs.GetString(PREF_USER_TOKEN, "");
-            if (token.Length == 0) return false;
-
-            var content = new[]
-            {
-                new KeyValuePair<string, string>("token", JObject.Parse(token)["access_token"].ToString())
-            };
-            HttpResponseMessage response = await CallWebAPI("/oauth/refresh", arrayContent: content);
-            if (response.IsSuccessStatusCode)
-            {
-                token = await response.Content.ReadAsStringAsync();
-                var jsonResp = JObject.Parse(token);
-                ISharedPreferencesEditor edit = prefs.Edit();
-                edit.PutString(PREF_USER_TOKEN, token);
-                edit.PutLong(PREF_VALID_TOKEN, ToUnixEpochDate(DateTime.Now.AddSeconds(jsonResp["expires_in"].ToObject<double>())));
-                edit.Commit();
-            }
-            return response.IsSuccessStatusCode;
-        }
-
-        /// <summary>
         /// Logouts the current user.
         /// </summary>
         /// <param name="context">Android context.</param>
@@ -195,6 +256,22 @@ namespace BusTrack.Utilities
                 edit.Commit();
                 context.StopService(new Intent(context, typeof(Scanner)));
             }
+        }
+
+        /// <summary>
+        /// Gets a DB configuration object.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <returns>The DB configuration object.</returns>
+        internal static RealmConfiguration GetDB(Context context)
+        {
+            if (!UserLogged(context)) throw new Exception("No user logged");
+
+            ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
+            string id = prefs.GetLong(PREF_USER_ID, -1).ToString();
+            RealmConfiguration config = new RealmConfiguration("BusTrack" + id + ".realm", true);
+            config.SchemaVersion = 1;
+            return config;
         }
 
         /// <summary>
@@ -215,7 +292,11 @@ namespace BusTrack.Utilities
                 new KeyValuePair<string, string>("sign", PerformClientHash(json["email"].ToString(), sign))
             };
             HttpResponseMessage response = await CallWebAPI("/account/delete", context, content);
-            if (response.IsSuccessStatusCode) Logout(context);
+            if (response.IsSuccessStatusCode)
+            {
+                Realm.DeleteRealm(GetDB(context));
+                Logout(context);
+            }
             return response.IsSuccessStatusCode;
         }
 
@@ -297,13 +378,42 @@ namespace BusTrack.Utilities
         }
 
         /// <summary>
+        /// Refreshes the user token.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <returns>True or false depending if the action was successful or not.</returns>
+        private async static Task<bool> Refresh(Context context)
+        {
+            ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
+            string token = prefs.GetString(PREF_USER_TOKEN, "");
+            if (token.Length == 0) return false;
+
+            var content = new[]
+            {
+                new KeyValuePair<string, string>("token", JObject.Parse(token)["access_token"].ToString())
+            };
+            HttpResponseMessage response = await CallWebAPI("/oauth/refresh", arrayContent: content, checkLogin: false);
+            if (response.IsSuccessStatusCode)
+            {
+                token = await response.Content.ReadAsStringAsync();
+                var jsonResp = JObject.Parse(token);
+                ISharedPreferencesEditor edit = prefs.Edit();
+                edit.PutString(PREF_USER_TOKEN, token);
+                edit.PutLong(PREF_VALID_TOKEN, ToUnixEpochDate(DateTime.Now.AddSeconds(jsonResp["expires_in"].ToObject<double>())));
+                edit.Commit();
+            }
+            return response.IsSuccessStatusCode;
+        }
+
+        /// <summary>
         /// Method in charge of performs requests to the web server.
         /// </summary>
         /// <param name="urlPath">The url path (excluding base url).</param>
         /// <param name="context">Android context (default to null). If it's provided, it will be used to retrieve the user token.</param>
         /// <param name="arrayContent">The POST content (default to null). If it's not provided, a GET request will be used instead.</param>
+        /// <param name="checkLogin">A flag indicating if before requesting the data, it should check whether OAuth tokens are valids or not.</param>
         /// <returns>A HttpResponseMessage object.</returns>
-        private async static Task<HttpResponseMessage> CallWebAPI(string urlPath, Context context = null, IEnumerable<KeyValuePair<string, string>> arrayContent = null)
+        private async static Task<HttpResponseMessage> CallWebAPI(string urlPath, Context context = null, IEnumerable<KeyValuePair<string, string>> arrayContent = null, bool checkLogin = true)
         {
             using (var client = new HttpClient())
             {
@@ -313,8 +423,10 @@ namespace BusTrack.Utilities
 
                 if (context != null)
                 {
-                    // Ensure there is an user logged!
-                    if (!UserLogged(context)) return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+                    if (checkLogin && !await CheckLogin(context))
+                    {
+                        throw new Exception("Relog required");
+                    } else if (!UserLogged(context)) return new HttpResponseMessage(HttpStatusCode.Unauthorized); // Ensure there is an user logged!)
 
                     ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
                     if (!prefs.Contains(PREF_USER_TOKEN)) return new HttpResponseMessage(HttpStatusCode.Unauthorized);
@@ -327,13 +439,21 @@ namespace BusTrack.Utilities
                 // Build URL
                 var url = new StringBuilder(WEB_URL).Append(urlPath).ToString();
 
-                // Use POST or GET
-                if (arrayContent != null)
+                try
                 {
-                    var content = new FormUrlEncodedContent(arrayContent);
-                    return await client.PostAsync(url, content);
+                    // Use POST or GET
+                    if (arrayContent != null)
+                    {
+                        var content = new FormUrlEncodedContent(arrayContent);
+                        return await client.PostAsync(url, content);
+                    }
+                    else return await client.GetAsync(url);
                 }
-                else return await client.GetAsync(url);
+                catch (Exception e)
+                {
+                    Log.Error(NAME_PREF, Java.Lang.Throwable.FromException(e), "CallWebAPI failed!");
+                    return new HttpResponseMessage(HttpStatusCode.Conflict);
+                }
             }
         }
 
@@ -347,7 +467,7 @@ namespace BusTrack.Utilities
             string s = Convert.ToBase64String(array, 0, array.Length);
             s = s.Split(base64PadCharacter)[0]; // Remove any trailing padding
             s = s.Replace(base64Character62, base64UrlCharacter62);  // 62nd char of encoding
-            s = s.Replace(base64Character63, _base64UrlCharacter63);  // 63rd char of encoding
+            s = s.Replace(base64Character63, base64UrlCharacter63);  // 63rd char of encoding
 
             return s;
         }

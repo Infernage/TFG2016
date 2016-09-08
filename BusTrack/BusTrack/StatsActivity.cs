@@ -7,6 +7,7 @@ using Android.Widget;
 using BusTrack.Utilities;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using Android.Util;
 
 namespace BusTrack
 {
@@ -25,6 +26,7 @@ namespace BusTrack
 
             MenuInitializer.InitMenu(this);
 
+            // Create a progress dialog meanwhile we retrieve user stats
             ProgressDialog dialog = new ProgressDialog(this);
             dialog.Indeterminate = true;
             dialog.SetProgressStyle(ProgressDialogStyle.Spinner);
@@ -32,12 +34,12 @@ namespace BusTrack
             dialog.SetCancelable(false);
             dialog.Show();
 
+            // Init UI
             table = FindViewById<TableLayout>(Resource.Id.tableLayout1);
             paramL = new TableRow.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.MatchParent);
             paramR = new TableRow.LayoutParams(ViewGroup.LayoutParams.WrapContent, ViewGroup.LayoutParams.MatchParent);
             paramL.Weight = 1;
             paramR.Weight = 0;
-
             var totalTravels = InitUI("Viajes totales");
             var travelsDay = InitUI("Viajes por día");
             var mostUsedLine = InitUI("Línea más usada");
@@ -46,22 +48,32 @@ namespace BusTrack
             var pollutionBus = InitUI("Contaminación ahorrada (Bus normal)"); // g CO2/km
             var pollutionEBus = InitUI("Contaminación ahorrada (Bus eléctrico)"); // g CO2/km
 
+            // Request stats
             await Task.Run(async () =>
                 {
-                    string resp = await Utils.GetStatistics(this);
-                    if (resp.Length == 0) return;
-
-                    var json = JObject.Parse(resp);
-                    RunOnUiThread(() =>
+                    try
                     {
-                        totalTravels.Item2.Text = json["totalTravels"].ToString();
-                        travelsDay.Item2.Text = json["travelsByDay"].ToString();
-                        mostUsedLine.Item2.Text = json["mostUsedLine"].ToString();
-                        averageDuration.Item2.Text = json["averageDuration"].ToString();
-                        longestDuration.Item2.Text = json["longestDuration"].ToString();
-                        pollutionBus.Item2.Text = json["pollutionBus"].ToString() + "g CO2/km";
-                        pollutionEBus.Item2.Text = json["pollutionElectricBus"].ToString() + "g CO2/km";
-                    });
+                        string resp = await Utils.GetStatistics(this);
+                        if (resp.Length == 0) return;
+
+                        var json = JObject.Parse(resp);
+                        RunOnUiThread(() =>
+                        {
+                            totalTravels.Item2.Text = json["totalTravels"].ToString();
+                            travelsDay.Item2.Text = json["travelsByDay"].ToString();
+                            mostUsedLine.Item2.Text = json["mostUsedLine"].ToString();
+                            averageDuration.Item2.Text = json["averageDuration"].ToString();
+                            longestDuration.Item2.Text = json["longestDuration"].ToString();
+                            pollutionBus.Item2.Text = json["pollutionBus"].ToString() + "g CO2/km";
+                            pollutionEBus.Item2.Text = json["pollutionElectricBus"].ToString() + "g CO2/km";
+                        });
+                    } catch (Exception ex)
+                    {
+                        Log.Error(Utils.NAME_PREF, Java.Lang.Throwable.FromException(ex), "Failed to get stats!");
+                        RunOnUiThread(() => Toast.MakeText(this, Resource.String.SesExp, ToastLength.Long).Show());
+                        Finish();
+                        StartActivity(typeof(LoginActivity));
+                    }
                 });
 
             dialog.Dismiss();

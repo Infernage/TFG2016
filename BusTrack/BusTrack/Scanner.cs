@@ -20,6 +20,8 @@ namespace BusTrack
     [Service]
     class Scanner : Service
     {
+        private readonly string currentAp = "currentAp";
+        private readonly string currentTravel = "currentTravel";
         private Thread scanner;
 
         public override void OnCreate()
@@ -35,8 +37,8 @@ namespace BusTrack
                 {
                     using (Realm realm = Realm.GetInstance(Utils.NAME_PREF))
                     {
-                        string busAp = prefs.GetString("currentAp", null);
-                        int travelId = prefs.GetInt("currentTravel", -1);
+                        string busAp = prefs.GetString(currentAp, null);
+                        int travelId = prefs.GetInt(currentTravel, -1);
                         var results = realm.All<Travel>().Where(t => t.id == travelId);
                         Travel current = results.Count() > 0 ? results.First() : null;
                         Dictionary<string, Tuple<Stopwatch, Location>> candidates = new Dictionary<string, Tuple<Stopwatch, Location>>();
@@ -64,8 +66,8 @@ namespace BusTrack
 
                                     // Store last state
                                     ISharedPreferencesEditor editor = prefs.Edit();
-                                    editor.PutInt("currentTravel", current.id);
-                                    editor.PutString("currentAp", busAp);
+                                    editor.PutInt(currentTravel, current.id);
+                                    editor.PutString(currentAp, busAp);
                                     editor.Apply();
 
                                     candidates.Clear();
@@ -107,8 +109,8 @@ namespace BusTrack
 
                                     // Reset last state
                                     ISharedPreferencesEditor editor = prefs.Edit();
-                                    editor.Remove("currentTravel");
-                                    editor.Remove("currentAp");
+                                    editor.Remove(currentTravel);
+                                    editor.Remove(currentAp);
                                     editor.Apply();
                                 }
                             }
@@ -234,7 +236,7 @@ namespace BusTrack
         private void ScanUp(WifiUtility wifi, LocationUtility location, Dictionary<string, Tuple<Stopwatch, Location>> candidates)
         {
             // Get stored network names
-            List<string> apNames = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private).GetStringSet(Utils.PREF_NETWORKS, new List<string>()).ToList();
+            List<string> apNames = Utils.GetNetworks(this);
 
             // Check if any network is being received
             foreach (ScanResult ap in wifi.Results)

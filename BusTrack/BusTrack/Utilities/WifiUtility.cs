@@ -4,11 +4,15 @@ using Android.Net.Wifi;
 using System.Threading;
 using Android.Net;
 using Android.App;
+using System.Threading.Tasks;
 
 namespace BusTrack.Utilities
 {
     class WifiUtility : BroadcastReceiver
     {
+        public delegate void UpdateEventHandler(List<ScanResult> networks);
+        public static event UpdateEventHandler UpdateNetworks;
+
         private WifiManager wifi;
         private ConnectivityManager connectivity;
         private NotificationManager notificator;
@@ -65,6 +69,14 @@ namespace BusTrack.Utilities
                 results.AddRange(wifi.ScanResults);
                 handle.Set();
             }
+
+            // Notify throughout delegate
+            /*
+             * This is the same as:
+             UpdateEventHandler handler = UpdateNetworks;
+             if (handler != null) handler(results);
+             */
+            Task.Run(() => UpdateNetworks?.Invoke(results));
         }
 
         private bool CheckState()

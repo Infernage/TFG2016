@@ -10,8 +10,8 @@ namespace BusTrackWeb.Models
     {
         public long line_id { get; set; }
         public long stop_id { get; set; }
-        public long next { get; set; }
-        public long previous { get; set; }
+        public long? next { get; set; }
+        public long? previous { get; set; }
 
         [ForeignKey("line_id")]
         public Line Line { get; set; }

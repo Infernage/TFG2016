@@ -278,6 +278,9 @@ namespace BusTrack
         {
             base.DispatchDraw(canvas);
 
+            ContentView.OffsetLeftAndRight(contentOffsetX - ContentView.Left);
+            UpdateParallax();
+
             if (opened || isTracking || animator != null)
             {
                 // Draw inset shadow on the menu

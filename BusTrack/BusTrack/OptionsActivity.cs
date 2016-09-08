@@ -1,19 +1,16 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 using Android.App;
 using Android.Content;
 using Android.OS;
-using Android.Runtime;
 using Android.Views;
 using Android.Widget;
 using Realms;
 using BusTrack.Utilities;
 using BusTrack.Data;
-using System.Security.Cryptography;
 using System.Threading.Tasks;
+using Android.Util;
 
 namespace BusTrack
 {
@@ -29,16 +26,8 @@ namespace BusTrack
 
             MenuInitializer.InitMenu(this);
 
-            Button limitSize = FindViewById<Button>(Resource.Id.dataLimit), clearData = FindViewById<Button>(Resource.Id.clearButton),
+            Button clearData = FindViewById<Button>(Resource.Id.clearButton),
                 modAcc = FindViewById<Button>(Resource.Id.modifyAccount), delAcc = FindViewById<Button>(Resource.Id.deleteAccount);
-            limitSize.Click += (o, e) =>
-            {
-                FragmentTransaction trans = FragmentManager.BeginTransaction();
-                Fragment prev = FragmentManager.FindFragmentByTag(Utils.PREF_DATA_LIMIT);
-                if (prev != null) trans.Remove(prev);
-                trans.AddToBackStack(null);
-                new LimitDialog().Show(trans, Utils.PREF_DATA_LIMIT);
-            };
 
             clearData.Click += (o, e) =>
             {
@@ -52,7 +41,7 @@ namespace BusTrack
                 });
                 alert.SetPositiveButton("Aceptar", (ob, ev) =>
                 {
-                    using (Realm realm = Realm.GetInstance(Utils.NAME_PREF))
+                    using (Realm realm = Realm.GetInstance(Utils.GetDB(this)))
                     {
                         int userId = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private).GetInt(Utils.PREF_USER_ID, -1);
                         if (userId == -1)
@@ -95,15 +84,25 @@ namespace BusTrack
                 builder.SetView(input);
                 builder.SetPositiveButton("Aceptar", async (ob, ev) =>
                 {
-                    if (await Utils.DeleteAccount(this, input.Text))
+                    try
                     {
+                        if (await Utils.DeleteAccount(this, input.Text))
+                        {
+                            dialog.Dismiss();
+                            Finish();
+                            StartActivity(typeof(LoginActivity));
+                        }
+                        else
+                        {
+                            Toast.MakeText(this, "Fallo al borrar la cuenta", ToastLength.Long).Show();
+                        }
+                    } catch (Exception ex)
+                    {
+                        Log.Error(Utils.NAME_PREF, Java.Lang.Throwable.FromException(ex), "Delete failed!");
+                        RunOnUiThread(() => Toast.MakeText(this, Resource.String.SesExp, ToastLength.Long).Show());
                         dialog.Dismiss();
                         Finish();
                         StartActivity(typeof(LoginActivity));
-                    }
-                    else
-                    {
-                        Toast.MakeText(this, "Fallo al borrar la cuenta", ToastLength.Long).Show();
                     }
                 });
                 builder.SetNegativeButton("Cancelar", (ob, ev) => dialog.Dismiss());
@@ -168,85 +167,67 @@ namespace BusTrack
 
                 await Task.Run(async () =>
                 {
-                    ISharedPreferencesEditor edit = prefs.Edit();
-                    // If name changed, sync between prefs and server
-                    if (!sName.Equals(name))
+                    try
                     {
-                        if (await Utils.ChangeCredentials(CredentialType.Name, name, Utils.PerformClientHash(sEmail, sign), context)) edit.PutString(Utils.PREF_USER_NAME, name);
-                        else
+                        ISharedPreferencesEditor edit = prefs.Edit();
+                        // If name changed, sync between prefs and server
+                        if (!sName.Equals(name))
+                        {
+                            if (await Utils.ChangeCredentials(CredentialType.Name, name, Utils.PerformClientHash(sEmail, sign), context)) edit.PutString(Utils.PREF_USER_NAME, name);
+                            else
+                            {
+                                // If something went wrong, tell user and abort
+                                Activity.RunOnUiThread(() => Toast.MakeText(context, Resource.String.SyncErr, ToastLength.Long).Show());
+                                return;
+                            }
+                        }
+                        // If email changed, sync between prefs and server
+                        if (!sEmail.Equals(email))
                         {
                             // If something went wrong, tell user and abort
-                            Activity.RunOnUiThread(() => Toast.MakeText(context, Resource.String.SyncErr, ToastLength.Long).Show());
-                            return;
-                        }
-                    }
-                    // If email changed, sync between prefs and server
-                    if (!sEmail.Equals(email))
-                    {
-                        // If something went wrong, tell user and abort
-                        if (!await Utils.ChangeCredentials(CredentialType.Password, Utils.PerformClientHash(email, sign), Utils.PerformClientHash(sEmail, sign), context))
-                        {
-                            Activity.RunOnUiThread(() => Toast.MakeText(context, Resource.String.SyncErr, ToastLength.Long).Show());
-                            return;
-                        }
+                            if (!await Utils.ChangeCredentials(CredentialType.Password, Utils.PerformClientHash(email, sign), Utils.PerformClientHash(sEmail, sign), context))
+                            {
+                                Activity.RunOnUiThread(() => Toast.MakeText(context, Resource.String.SyncErr, ToastLength.Long).Show());
+                                return;
+                            }
 
-                        // If it's not possible to change email, revert password change
-                        if (await Utils.ChangeCredentials(CredentialType.Email, email, Utils.PerformClientHash(email, sign), context)) edit.PutString(Utils.PREF_USER_EMAIL, email);
-                        else
-                        {
-                            await Utils.ChangeCredentials(CredentialType.Password, Utils.PerformClientHash(sEmail, sign), Utils.PerformClientHash(email, sign), context);
-                            Activity.RunOnUiThread(() => Toast.MakeText(context, Resource.String.SyncErr, ToastLength.Long).Show());
-                            return;
+                            // If it's not possible to change email, revert password change
+                            if (await Utils.ChangeCredentials(CredentialType.Email, email, Utils.PerformClientHash(email, sign), context)) edit.PutString(Utils.PREF_USER_EMAIL, email);
+                            else
+                            {
+                                await Utils.ChangeCredentials(CredentialType.Password, Utils.PerformClientHash(sEmail, sign), Utils.PerformClientHash(email, sign), context);
+                                Activity.RunOnUiThread(() => Toast.MakeText(context, Resource.String.SyncErr, ToastLength.Long).Show());
+                                return;
+                            }
                         }
-                    }
-                    // If password changed, sync between prefs and server
-                    if (pass.Length != 0)
+                        // If password changed, sync between prefs and server
+                        if (pass.Length != 0)
+                        {
+                            string nPass = Utils.PerformClientHash(email, pass);
+                            pass = string.Empty;
+                            if (!await Utils.ChangeCredentials(CredentialType.Password, nPass, Utils.PerformClientHash(email, sign), context))
+                            {
+                                Activity.RunOnUiThread(() => Toast.MakeText(context, Resource.String.SyncErr, ToastLength.Long).Show());
+                                return;
+                            }
+                        }
+                        edit.Commit();
+                        dialog.Dismiss();
+                    } catch (Exception ex)
                     {
-                        string nPass = Utils.PerformClientHash(email, pass);
-                        pass = string.Empty;
-                        if (!await Utils.ChangeCredentials(CredentialType.Password, nPass, Utils.PerformClientHash(email, sign), context))
+                        Log.Error(Utils.NAME_PREF, Java.Lang.Throwable.FromException(ex), "Change credentials failed!");
+                        Activity.RunOnUiThread(() =>
                         {
-                            Activity.RunOnUiThread(() => Toast.MakeText(context, Resource.String.SyncErr, ToastLength.Long).Show());
-                            return;
-                        }
+                            Toast.MakeText(context, Resource.String.SesExp, ToastLength.Long).Show();
+                        });
+                        dialog.Dismiss();
+                        Activity.StartActivity(typeof(LoginActivity));
+                        Activity.Finish();
                     }
-                    edit.Commit();
-                    dialog.Dismiss();
                 });
             };
 
             return dialog;
-        }
-    }
-
-    class LimitDialog : DialogFragment
-    {
-        public override Dialog OnCreateDialog(Bundle savedInstanceState)
-        {
-            base.OnCreateDialog(savedInstanceState);
-
-            ISharedPreferences prefs = Activity.GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private);
-            NumberPicker picker = new NumberPicker(Activity);
-            picker.MaxValue = 100;
-            picker.MinValue = 0;
-            picker.Value = prefs.GetInt(Utils.PREF_DATA_LIMIT, 20);
-
-            var builder = new AlertDialog.Builder(Activity);
-            builder.SetView(picker);
-            builder.SetMessage("Máximo límite de datos (en MB)");
-            builder.SetPositiveButton("Aceptar", (o, e) =>
-            {
-                ISharedPreferencesEditor editor = prefs.Edit();
-                editor.PutInt(Utils.PREF_DATA_LIMIT, picker.Value);
-                editor.Apply();
-                Dismiss();
-            });
-            builder.SetNegativeButton("Cancelar", (o, e) =>
-            {
-                Dismiss();
-            });
-
-            return builder.Create();
         }
     }
 }

@@ -5,4 +5,5 @@
   <string name="PasswordHint">Contraseña</string>
   <string name="Optional">Opcional</string>
   <string name="SyncErr">Sincronización con el servidor fallida. Comprueba tu conexión a internet/de datos.</string>
+  <string name="SesExp">Sesión expirada</string>
 </resources>

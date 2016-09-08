@@ -76,7 +76,7 @@
             android:background="@android:color/holo_blue_light"
             android:layout_marginBottom="10dp" />
         <TextView
-            android:text="Redes actuales"
+            android:text="Redes detectadas y guardadas"
             android:textAppearance="?android:attr/textAppearanceMedium"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

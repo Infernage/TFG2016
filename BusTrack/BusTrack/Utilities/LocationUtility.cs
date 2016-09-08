@@ -3,7 +3,6 @@ using Android.OS;
 using Android.Gms.Common.Apis;
 using Android.Gms.Common;
 using Android.Locations;
-using System.Threading;
 using Android.Gms.Location;
 
 namespace BusTrack.Utilities
@@ -12,7 +11,6 @@ namespace BusTrack.Utilities
     {
         private GoogleApiClient clientLocation;
         private Location last;
-        //private AutoResetEvent evt;
         
         /// <summary>
         /// Retreives the last known location from GPS/network
@@ -21,9 +19,6 @@ namespace BusTrack.Utilities
         {
             get
             {
-                /*RequestUpdates();
-                evt.WaitOne();
-                return last;*/
                 return LocationServices.FusedLocationApi.GetLastLocation(clientLocation);
             }
         }
@@ -31,7 +26,6 @@ namespace BusTrack.Utilities
         public LocationUtility(Context context)
         {
             clientLocation = new GoogleApiClient.Builder(context).AddApi(LocationServices.API).AddConnectionCallbacks(this).AddOnConnectionFailedListener(this).Build();
-            //evt = new AutoResetEvent(false);
             Connect();
         }
 
@@ -77,17 +71,6 @@ namespace BusTrack.Utilities
         public void OnLocationChanged(Location location)
         {
             last = location;
-            LocationServices.FusedLocationApi.RemoveLocationUpdates(clientLocation, this);
-            //evt.Set();
-        }
-
-        private void RequestUpdates()
-        {
-            LocationRequest req = new LocationRequest();
-            req.SetPriority(LocationRequest.PriorityBalancedPowerAccuracy);
-            req.SetInterval(5000);
-            req.SetFastestInterval(1000);
-            LocationServices.FusedLocationApi.RequestLocationUpdates(clientLocation, req, this);
         }
     }
 }

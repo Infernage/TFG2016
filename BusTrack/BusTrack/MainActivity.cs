@@ -12,12 +12,16 @@ using System.Linq;
 using Android.Locations;
 using System.Collections.Generic;
 using BusTrack.Utilities;
+using Android.Net.Wifi;
+using Android.Graphics;
+using Android.Content.Res;
 
 namespace BusTrack
 {
     [Activity(Label = "BusTrack", MainLauncher = true, Icon = "@drawable/icon")]
     public class MainActivity : Activity
     {
+        private NetworkListAdapter adapter;
 
         protected async override void OnCreate(Bundle bundle)
         {
@@ -36,26 +40,28 @@ namespace BusTrack
 
             // Load shared prefs
             ISharedPreferences prefs = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private);
-            List<string> apNames = prefs.GetStringSet(Utils.PREF_NETWORKS, new List<string>()).ToList();
+
+            // Load networks names
+            List<string> apNames = Utils.GetNetworks(this);
             if (apNames.Count == 0)
             {
                 apNames.Add("wifibus");
-                ISharedPreferencesEditor edit = prefs.Edit();
-                edit.PutStringSet(Utils.PREF_NETWORKS, apNames);
-                edit.Apply();
+                Utils.SetNetworks(this, apNames);
             }
 
             // Initialize ListView
-            NetworkListAdapter adapter = new NetworkListAdapter(this);
+            adapter = new NetworkListAdapter(this);
             ListView view = FindViewById<ListView>(Resource.Id.listView1);
             view.Adapter = adapter;
 
             MenuInitializer.InitMenu(this);
 
+            // Set user name in welcome message
             TextView welcome = FindViewById<TextView>(Resource.Id.welcome);
             string text = welcome.Text;
             welcome.Text = text.Replace("<user>", prefs.GetString(Utils.PREF_USER_NAME, "Usuario"));
 
+            // Add network functionality
             Button addNetwork = FindViewById<Button>(Resource.Id.addNetwork);
             addNetwork.Click += (o, e) =>
             {
@@ -96,12 +102,35 @@ namespace BusTrack
                 else new LineCreatorDialog(this, travelId).Show(trans, tag); // We don't know the possible lines
             }
 
-            if (Utils.UserLogged(this))
+            WifiUtility.UpdateNetworks += UpdateUI;
+
+            // We are logged in, start scanner
+            Intent service = new Intent(this, typeof(Scanner));
+            service.AddFlags(ActivityFlags.NewTask);
+            StartService(service);
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+            WifiUtility.UpdateNetworks -= UpdateUI;
+        }
+
+        /// <summary>
+        /// Event receiver of WifiUtility.
+        /// </summary>
+        /// <param name="networks">The networks detected.</param>
+        private void UpdateUI(List<ScanResult> networks)
+        {
+            List<string> stored = Utils.GetNetworks(this);
+            List<string> nets = new List<string>();
+
+            foreach(ScanResult res in networks)
             {
-                Intent service = new Intent(this, typeof(Scanner));
-                service.AddFlags(ActivityFlags.NewTask);
-                StartService(service);
+                if (!stored.Contains(res.Ssid)) nets.Add(res.Ssid);
             }
+
+            adapter?.UpdateDetected(nets);
         }
 
         /// <summary>
@@ -109,8 +138,7 @@ namespace BusTrack
         /// </summary>
         private void CheckDBIntegrity()
         {
-            RealmConfiguration config = new RealmConfiguration(Utils.NAME_PREF, false);
-            using (Realm realm = Realm.GetInstance(config))
+            using (Realm realm = Realm.GetInstance(Utils.GetDB(this)))
             {
                 var stops = realm.All<Stop>();
                 var lines = realm.All<Line>();
@@ -201,85 +229,85 @@ namespace BusTrack
         {
             if (travel == -1) return base.OnCreateDialog(savedInstanceState);
 
-            Realm realm = Realm.GetInstance(Utils.NAME_PREF);
-
-            // Get objects from DB
-            Travel t = realm.All<Travel>().Where(tr => tr.id == travel).First();
-            List<Line> realmLines = new List<Line>();
-            foreach (int l in lines)
+            using (Realm realm = Realm.GetInstance(Utils.GetDB(activity)))
             {
-                var results = from li in realm.All<Line>() where li.id == l select li;
-                realmLines.Add(results.First());
-            }
+                // Get objects from DB
+                Travel t = realm.All<Travel>().Where(tr => tr.id == travel).First();
+                List<Line> realmLines = new List<Line>();
+                foreach (int l in lines)
+                {
+                    var results = from li in realm.All<Line>() where li.id == l select li;
+                    realmLines.Add(results.First());
+                }
 
-            // Create dialog
-            AlertDialog dialog = null;
-            var builder = new AlertDialog.Builder(Activity);
-            builder.SetView(Resource.Layout.LineChooser);
-            builder.SetMessage("Línea tomada");
-            builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>)null);
+                // Create dialog
+                AlertDialog dialog = null;
+                var builder = new AlertDialog.Builder(Activity);
+                builder.SetView(Resource.Layout.LineChooser);
+                builder.SetMessage("Línea tomada");
+                builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>)null);
 
-            dialog = builder.Create();
+                dialog = builder.Create();
+                dialog.Show();
 
-            dialog.Show(); // Just in case!
+                Button accept = dialog.GetButton((int)DialogButtonType.Positive);
+                accept.Click += (o, e) =>
+                {
+                    // Get line from radio button
+                    Line line = null;
+                    foreach (Line l in realmLines)
+                    {
+                        RadioButton radio = dialog.FindViewById<RadioButton>(l.id);
+                        if (radio.Checked)
+                        {
+                            line = l;
+                            break;
+                        }
+                    }
 
-            Button accept = dialog.GetButton((int)DialogButtonType.Positive);
-            accept.Click += (o, e) =>
-            {
-                // Get line from radio button
-                Line line = null;
+                    // Update travel with line selected
+                    if (line != null)
+                    {
+                        realm.Write(() =>
+                        {
+                            t.line = line;
+
+                            if ((t.bus.line != null && t.bus.line.id != t.line.id) || (t.bus.line == null))
+                            {
+                                t.bus.line = t.line;
+                                t.bus.lastRefresh = DateTimeOffset.Now;
+                            }
+
+                            if (t.init != null)
+                            {
+                                if (!t.init.lines.Contains(line)) t.init.lines.Add(line);
+                                if (!line.stops.Contains(t.init)) line.stops.Add(t.init);
+                            }
+
+                            if (t.end != null)
+                            {
+                                if (!t.end.lines.Contains(line)) t.end.lines.Add(line);
+                                if (!line.stops.Contains(t.end)) line.stops.Add(t.end);
+                            }
+                        });
+                        Dismiss();
+                        activity.Finish();
+                    }
+                };
+
+                // Set radio buttons
+                RadioGroup group = dialog.FindViewById<RadioGroup>(Resource.Id.radioGroup1);
                 foreach (Line l in realmLines)
                 {
-                    RadioButton radio = dialog.FindViewById<RadioButton>(l.id);
-                    if (radio.Checked)
-                    {
-                        line = l;
-                        break;
-                    }
+                    RadioButton button = new RadioButton(Activity);
+                    button.LayoutParameters = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
+                    button.SetText(l.id.ToString() + " - " + l.name, TextView.BufferType.Normal);
+                    button.Id = l.id;
+                    group.AddView(button);
                 }
 
-                // Update travel with line selected
-                if (line != null)
-                {
-                    realm.Write(() =>
-                    {
-                        t.line = line;
-
-                        if ((t.bus.line != null && t.bus.line.id != t.line.id) || (t.bus.line == null))
-                        {
-                            t.bus.line = t.line;
-                            t.bus.lastRefresh = DateTimeOffset.Now;
-                        }
-
-                        if (t.init != null)
-                        {
-                            if (!t.init.lines.Contains(line)) t.init.lines.Add(line);
-                            if (!line.stops.Contains(t.init)) line.stops.Add(t.init);
-                        }
-
-                        if (t.end != null)
-                        {
-                            if (!t.end.lines.Contains(line)) t.end.lines.Add(line);
-                            if (!line.stops.Contains(t.end)) line.stops.Add(t.end);
-                        }
-                    });
-                    Dismiss();
-                    activity.Finish();
-                }
-            };
-
-            // Set radio buttons
-            RadioGroup group = dialog.FindViewById<RadioGroup>(Resource.Id.radioGroup1);
-            foreach (Line l in realmLines)
-            {
-                RadioButton button = new RadioButton(Activity);
-                button.LayoutParameters = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
-                button.SetText(l.id.ToString() + " - " + l.name, TextView.BufferType.Normal);
-                button.Id = l.id;
-                group.AddView(button);
+                return dialog;
             }
-
-            return dialog;
         }
     }
 
@@ -306,92 +334,91 @@ namespace BusTrack
         {
             if (travel == -1) return base.OnCreateDialog(savedInstanceState);
 
-            Realm realm = Realm.GetInstance(Utils.NAME_PREF);
-
-            Travel t = realm.All<Travel>().Where(tr => tr.id == travel).First();
-
-            // Create dialog
-            AlertDialog dialog = null;
-            var builder = new AlertDialog.Builder(Activity);
-            builder.SetView(Resource.Layout.LineCreator);
-            builder.SetMessage("Línea tomada");
-            builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>)null);
-
-            dialog = builder.Create();
-
-            dialog.Show(); // Just in case!
-
-            Button accept = dialog.GetButton((int)DialogButtonType.Positive);
-            accept.Click += (o, e) =>
+            using (Realm realm = Realm.GetInstance(Utils.GetDB(activity)))
             {
-                EditText number = dialog.FindViewById<EditText>(Resource.Id.editText1), name = dialog.FindViewById<EditText>(Resource.Id.editText2);
+                Travel t = realm.All<Travel>().Where(tr => tr.id == travel).First();
 
-                // Check if the user has entered at least 1 character
-                if (name.Text.Length != 0)
+                // Create dialog
+                AlertDialog dialog = null;
+                var builder = new AlertDialog.Builder(Activity);
+                builder.SetView(Resource.Layout.LineCreator);
+                builder.SetMessage("Línea tomada");
+                builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>)null);
+
+                dialog = builder.Create();
+
+                dialog.Show(); // Just in case!
+
+                Button accept = dialog.GetButton((int)DialogButtonType.Positive);
+                accept.Click += (o, e) =>
                 {
-                    // Parse line number (if exists)
-                    int lineNumber = -1;
-                    int.TryParse(number.Text, out lineNumber);
+                    EditText number = dialog.FindViewById<EditText>(Resource.Id.editText1), name = dialog.FindViewById<EditText>(Resource.Id.editText2);
 
-                    var lines = realm.All<Line>().Where(l => l.id == lineNumber);
-
-                    realm.Write(() =>
+                    // Check if the user has entered at least 1 character
+                    if (name.Text.Length != 0)
                     {
-                        Line line = lines.Count() > 0 ? lines.First() : realm.CreateObject<Line>();
-                        if (lines.Count() == 0)
-                        {
-                            if (lineNumber != -1) line.id = lineNumber;
-                            string n = name.Text;
-                            line.name = n;
-                        }
-                        t.line = line;
+                        // Parse line number (if exists)
+                        int lineNumber = -1;
+                        int.TryParse(number.Text, out lineNumber);
 
-                        if ((t.bus.line != null && t.bus.line.id != t.line.id) || (t.bus.line == null))
-                        {
-                            t.bus.line = t.line;
-                            t.bus.lastRefresh = DateTimeOffset.Now;
-                        }
+                        var lines = realm.All<Line>().Where(l => l.id == lineNumber);
 
-                        if (t.init != null)
+                        realm.Write(() =>
                         {
-                            if (!t.init.lines.Contains(line)) t.init.lines.Add(line);
-                            if (!line.stops.Contains(t.init)) line.stops.Add(t.init);
-                        }
+                            Line line = lines.Count() > 0 ? lines.First() : realm.CreateObject<Line>();
+                            if (lines.Count() == 0)
+                            {
+                                if (lineNumber != -1) line.id = lineNumber;
+                                string n = name.Text;
+                                line.name = n;
+                            }
+                            t.line = line;
 
-                        if (t.end != null)
-                        {
-                            if (!t.end.lines.Contains(line)) t.end.lines.Add(line);
-                            if (!line.stops.Contains(t.end)) line.stops.Add(t.end);
-                        }
-                    });
-                    realm.Dispose();
-                    dialog.Dismiss();
-                    activity.Finish();
-                }
-            };
+                            if ((t.bus.line != null && t.bus.line.id != t.line.id) || (t.bus.line == null))
+                            {
+                                t.bus.line = t.line;
+                                t.bus.lastRefresh = DateTimeOffset.Now;
+                            }
 
-            return dialog;
+                            if (t.init != null)
+                            {
+                                if (!t.init.lines.Contains(line)) t.init.lines.Add(line);
+                                if (!line.stops.Contains(t.init)) line.stops.Add(t.init);
+                            }
+
+                            if (t.end != null)
+                            {
+                                if (!t.end.lines.Contains(line)) t.end.lines.Add(line);
+                                if (!line.stops.Contains(t.end)) line.stops.Add(t.end);
+                            }
+                        });
+                        dialog.Dismiss();
+                        activity.Finish();
+                    }
+                };
+
+                return dialog;
+            }
         }
     }
 
     class NetworkListAdapter : BaseAdapter<string>
     {
-        private ISharedPreferences prefs;
-        private List<string> list;
+        private List<string> stored, detected;
         private Activity context;
 
         public NetworkListAdapter(Activity c)
         {
             context = c;
-            prefs = c.GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private);
-            list = prefs.GetStringSet(Utils.PREF_NETWORKS, new List<string>()).ToList();
+            stored = Utils.GetNetworks(c);
+            detected = new List<string>();
         }
 
         public override string this[int position]
         {
             get
             {
-                return list[position];
+                return position >= stored.Count ? detected[position - stored.Count] : stored[position];
             }
         }
 
@@ -399,7 +426,7 @@ namespace BusTrack
         {
             get
             {
-                return list.Count;
+                return stored.Count + detected.Count;
             }
         }
 
@@ -410,43 +437,88 @@ namespace BusTrack
 
         public override View GetView(int position, View convertView, ViewGroup parent)
         {
+            // TODO: Find a way to sort items correctly
             var view = convertView;
+            Button button;
             if (view == null)
             {
                 view = context.LayoutInflater.Inflate(Resource.Layout.TextViewAdapter, parent, false);
-                Button button = view.FindViewById<Button>(Resource.Id.button1);
+                button = view.FindViewById<Button>(Resource.Id.button1);
                 button.Click += (o, e) =>
                 {
-                    AlertDialog dialog = null;
-                    AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                    builder.SetMessage("¿Estás seguro de que quieres eliminar la red seleccionada?");
-                    builder.SetPositiveButton("Sí", (ob, ev) =>
+                    int npos = position;
+                    if (IsStored(npos))
                     {
-                        dialog.Dismiss();
-                        list.RemoveAt(position);
-                        ISharedPreferencesEditor edit = prefs.Edit();
-                        edit.PutStringSet(Utils.PREF_NETWORKS, list);
-                        context.RunOnUiThread(() => NotifyDataSetChanged());
-                    });
-                    builder.SetNegativeButton("No", (ob, ev) => dialog.Dismiss());
+                        AlertDialog dialog = null;
+                        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                        builder.SetMessage("¿Estás seguro de que quieres eliminar la red seleccionada?");
+                        builder.SetPositiveButton("Sí", (ob, ev) =>
+                        {
+                            dialog.Dismiss();
+                            RemoveAt(npos);
+                            Utils.SetNetworks(context, stored);
+                            context.RunOnUiThread(() => NotifyDataSetChanged());
+                            button.Text = "Añadir";
+                            button.SetBackgroundColor(Color.LightBlue);
+                        });
+                        builder.SetNegativeButton("No", (ob, ev) => dialog.Dismiss());
 
-                    dialog = builder.Create();
-                    dialog.Show();
+                        dialog = builder.Create();
+                        dialog.Show();
+                    }
+                    else
+                    {
+                        Add(this[npos]);
+                        button.Text = "Eliminar";
+                        button.SetBackgroundColor(Color.Red);
+                    }
                 };
-            }
+            } else button = view.FindViewById<Button>(Resource.Id.button1);
 
-            view.FindViewById<TextView>(Resource.Id.textViewAdapter).Text = list[position];
+            view.FindViewById<TextView>(Resource.Id.textViewAdapter).Text = this[position];
+            if (IsStored(position))
+            {
+                button.Text = "Eliminar";
+                button.SetBackgroundColor(Color.Red);
+            }
+            else
+            {
+                button.Text = "Añadir";
+                button.SetBackgroundColor(Color.LightBlue);
+            }
 
             return view;
         }
 
-        public void Add(string value)
+        /// <summary>
+        /// Updates the detected networks.
+        /// </summary>
+        /// <param name="values">The network list.</param>
+        internal void UpdateDetected(List<string> values)
         {
-            list.Add(value);
-            ISharedPreferencesEditor edit = prefs.Edit();
-            edit.PutStringSet(Utils.PREF_NETWORKS, list);
-            edit.Apply();
+            if (values == null) return;
+
+            detected = values;
             context.RunOnUiThread(() => NotifyDataSetChanged());
+        }
+
+        internal void Add(string value)
+        {
+            stored.Add(value);
+            if (detected.Contains(value)) detected.Remove(value);
+            Utils.SetNetworks(context, stored);
+            context.RunOnUiThread(() => NotifyDataSetChanged());
+        }
+
+        private bool IsStored(int position)
+        {
+            return position < stored.Count;
+        }
+
+        private void RemoveAt(int position)
+        {
+            if (IsStored(position)) stored.RemoveAt(position);
+            else detected.RemoveAt(position);
         }
     }
 }
