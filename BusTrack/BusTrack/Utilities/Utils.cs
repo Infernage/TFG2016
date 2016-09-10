@@ -31,7 +31,7 @@ namespace BusTrack.Utilities
 
         public static readonly float POLLUTION_CAR = 119F, POLLUTION_BUS = 104F, POLLUTION_BUS_E = 18.6F;
 
-        internal static long ToUnixEpochDate(DateTime date) => (long)Math.Round((date.ToUniversalTime() - new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero)).TotalSeconds);
+        internal static long ToUnixEpochDate(DateTime date) => (long)Math.Round((date.ToUniversalTime() - new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds);
 
         private static readonly string PREF_VALID_TOKEN = "validTo";
 
@@ -402,7 +402,7 @@ namespace BusTrack.Utilities
 
             var content = new[]
             {
-                new KeyValuePair<string, string>("token", JObject.Parse(token)["access_token"].ToString())
+                new KeyValuePair<string, string>("token", JObject.Parse(token)["refresh_token"].ToString())
             };
             HttpResponseMessage response = await CallWebAPI("/oauth/refresh", arrayContent: content, checkLogin: false);
             if (response.IsSuccessStatusCode)

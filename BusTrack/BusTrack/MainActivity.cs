@@ -27,6 +27,7 @@ namespace BusTrack
         protected async override void OnCreate(Bundle bundle)
         {
             base.OnCreate(bundle);
+            RequestWindowFeature(WindowFeatures.NoTitle);
             if (!await Utils.CheckLogin(this))
             {
                 StartActivity(typeof(LoginActivity));
@@ -34,7 +35,6 @@ namespace BusTrack
                 return;
             }
             CheckDBIntegrity();
-            RequestWindowFeature(WindowFeatures.NoTitle);
 
             // Set our view from the "main" layout resource
             SetContentView(Resource.Layout.Main);
