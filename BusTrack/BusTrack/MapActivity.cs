@@ -139,17 +139,31 @@ namespace BusTrack
         {
             if (map != null)
             {
+                // Clear and add data
                 map.Clear();
                 map.AddPolyline(data.opts);
-                MarkerOptions iopts = new MarkerOptions(), eopts = new MarkerOptions();
+
+                MarkerOptions iopts = new MarkerOptions();
                 iopts.SetPosition(new LatLng(data.init.Latitude, data.init.Longitude));
                 iopts.SetTitle("Inicio");
                 iopts.SetIcon(BitmapDescriptorFactory.DefaultMarker(BitmapDescriptorFactory.HueCyan));
                 map.AddMarker(iopts);
+
+                MarkerOptions eopts = new MarkerOptions();
                 eopts.SetPosition(new LatLng(data.end.Latitude, data.end.Longitude));
                 eopts.SetTitle("Fin");
                 eopts.SetIcon(BitmapDescriptorFactory.DefaultMarker(BitmapDescriptorFactory.HueCyan));
                 map.AddMarker(eopts);
+
+                // Update camera for new data
+                IList<LatLng> points = data.opts.Points;
+                var builder = new LatLngBounds.Builder();
+                foreach (LatLng p in points) builder.Include(p);
+
+                LatLngBounds bounds = builder.Include(iopts.Position).Include(eopts.Position).Build();
+
+                CameraUpdate cu = CameraUpdateFactory.NewLatLngBounds(bounds, 50);
+                map.AnimateCamera(cu);
             }
         }
 

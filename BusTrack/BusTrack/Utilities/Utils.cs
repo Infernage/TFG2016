@@ -4,6 +4,7 @@ using Android.Gms.Maps.Model;
 using Android.Graphics;
 using Android.Util;
 using BusTrack.Data;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Realms;
 using System;
@@ -91,7 +92,7 @@ namespace BusTrack.Utilities
             var routes = json["routes"];
 
             if (routes.Count() == 0) return new PolylineOptions();
-            
+
             string encoded = routes[0]["overview_polyline"]["points"].ToString();
 
             List<LatLng> poly = new List<LatLng>();
@@ -140,7 +141,7 @@ namespace BusTrack.Utilities
             if (!UserLogged(context)) return new List<string>();
 
             ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
-            return prefs.GetStringSet("networks" + prefs.GetLong(PREF_USER_ID, -1).ToString(), new List<string>()).ToList();
+            return JsonConvert.DeserializeObject<List<string>>(prefs.GetString("networks" + prefs.GetLong(PREF_USER_ID, -1).ToString(), "[]"));
         }
 
         /// <summary>
@@ -154,7 +155,7 @@ namespace BusTrack.Utilities
 
             ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
             ISharedPreferencesEditor edit = prefs.Edit();
-            edit.PutStringSet("networks" + prefs.GetLong(PREF_USER_ID, -1).ToString(), networks);
+            edit.PutString("networks" + prefs.GetLong(PREF_USER_ID, -1).ToString(), JsonConvert.SerializeObject(networks, Formatting.Indented));
             edit.Commit();
         }
 
