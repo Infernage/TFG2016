@@ -77,4 +77,73 @@
         android:background="@android:color/transparent"
         android:gravity="center_vertical"
         android:layout_marginLeft="10dp" />
+    <View
+        android:layout_width="fill_parent"
+        android:layout_height="0.3dp"
+        android:id="@+id/view6"
+        android:background="@android:color/holo_blue_bright" />
+    <TextView
+        android:text="Opciones avanzadas"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/textView3"
+        android:layout_marginTop="10dp"
+        android:textStyle="bold"
+        android:layout_marginLeft="5dp" />
+    <View
+        android:layout_width="fill_parent"
+        android:layout_height="2dp"
+        android:id="@+id/view7"
+        android:background="#1F36CF" />
+    <Button
+        android:text="Detección de red"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:id="@+id/detectButton"
+        android:background="@android:color/transparent"
+        android:layout_marginLeft="10dp"
+        android:gravity="center_vertical" />
+    <View
+        android:layout_width="fill_parent"
+        android:layout_height="0.3dp"
+        android:id="@+id/view8"
+        android:background="@android:color/holo_blue_bright" />
+    <Button
+        android:text="Tiempo de detección de viaje"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:id="@+id/timeTravelButton"
+        android:background="@android:color/transparent"
+        android:layout_marginLeft="10dp"
+        android:gravity="center_vertical" />
+    <View
+        android:layout_width="fill_parent"
+        android:layout_height="0.3dp"
+        android:id="@+id/view9"
+        android:background="@android:color/holo_blue_bright" />
+    <CheckedTextView
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:id="@+id/sendDataCheck"
+        android:text="Enviar datos de manera automática"
+        android:layout_marginLeft="10dp"
+        android:gravity="center_vertical"
+        android:checked="true"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:textColor="@android:color/black"
+        android:checkMark="?android:attr/listChoiceIndicatorMultiple" />
+    <View
+        android:layout_width="fill_parent"
+        android:layout_height="0.3dp"
+        android:id="@+id/view10"
+        android:background="@android:color/holo_blue_bright" />
+    <Button
+        android:text="Enviar datos"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:id="@+id/sendDataButton"
+        android:enabled="false"
+        android:background="@drawable/sendbutton"
+        android:layout_margin="5dp" />
 </LinearLayout>
