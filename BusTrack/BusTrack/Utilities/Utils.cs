@@ -14,6 +14,7 @@ using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace BusTrack.Utilities
@@ -173,7 +174,7 @@ namespace BusTrack.Utilities
             if (prefs.GetLong(PREF_VALID_TOKEN, 0) > ToUnixEpochDate(DateTime.Now)) return true;
 
             // 2-> Check if user token is valid with web server
-            if ((await CallWebAPI("/oauth/check", context, checkLogin: false)).IsSuccessStatusCode) return true;
+            if ((await CallWebAPI("/oauth/check", CancellationToken.None, context, checkLogin: false)).IsSuccessStatusCode) return true;
 
             // 3-> User token expired, refresh it!
             if (await Refresh(context)) return true;
@@ -187,8 +188,9 @@ namespace BusTrack.Utilities
         /// Gets the user statistics from the server.
         /// </summary>
         /// <param name="context">Android context.</param>
+        /// <param name="ct">The cancellation token used for cancel the operation.</param>
         /// <returns>A JSON string with the user statistics or an empty one if something went wrong.</returns>
-        public async static Task<string> GetStatistics(Context context)
+        public async static Task<string> GetStatistics(Context context, CancellationToken ct)
         {
             ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
             long id = prefs.GetLong(PREF_USER_ID, -1);
@@ -197,7 +199,7 @@ namespace BusTrack.Utilities
             {
                 new KeyValuePair<string, string>("id", id.ToString())
             };
-            HttpResponseMessage response = await CallWebAPI("/account/getstatistics", context, content);
+            HttpResponseMessage response = await CallWebAPI("/account/getstatistics", ct, context, content);
             return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync() : string.Empty;
         }
 
@@ -207,15 +209,16 @@ namespace BusTrack.Utilities
         /// <param name="user">User email.</param>
         /// <param name="pass">User password.</param>
         /// <param name="context">Android context.</param>
+        /// <param name="ct">The cancellation token used for cancel the operation.</param>
         /// <returns>True or false if response is successful.</returns>
-        public async static Task<bool> Login(string user, string pass, Context context)
+        public async static Task<bool> Login(string user, string pass, Context context, CancellationToken ct)
         {
             var content = new[]
             {
                 new KeyValuePair<string, string>("username", user),
                 new KeyValuePair<string, string>("password", PerformClientHash(user, pass))
             };
-            HttpResponseMessage response = await CallWebAPI("/oauth/generate", arrayContent: content);
+            HttpResponseMessage response = await CallWebAPI("/oauth/generate", ct, arrayContent: content);
             if (response.IsSuccessStatusCode)
             {
                 string token = await response.Content.ReadAsStringAsync();
@@ -304,7 +307,7 @@ namespace BusTrack.Utilities
                 new KeyValuePair<string, string>("id", id.ToString()),
                 new KeyValuePair<string, string>("sign", PerformClientHash(json["email"].ToString(), sign))
             };
-            HttpResponseMessage response = await CallWebAPI("/account/delete", context, content);
+            HttpResponseMessage response = await CallWebAPI("/account/delete", CancellationToken.None, context, content);
             if (response.IsSuccessStatusCode)
             {
                 Realm.DeleteRealm(GetDB(context));
@@ -333,7 +336,7 @@ namespace BusTrack.Utilities
                 new KeyValuePair<string, string>("sign", sign)
             };
 
-            HttpResponseMessage response = await CallWebAPI("/account/change" + type.ToString("g").ToLower(), context, content);
+            HttpResponseMessage response = await CallWebAPI("/account/change" + type.ToString("g").ToLower(), CancellationToken.None, context, content);
             return response.IsSuccessStatusCode;
         }
 
@@ -354,7 +357,7 @@ namespace BusTrack.Utilities
                 new KeyValuePair<string, string>("email", email),
                 new KeyValuePair<string, string>("password", PerformClientHash(email, pass))
             };
-            HttpResponseMessage response = await CallWebAPI("/oauth/register", arrayContent: content);
+            HttpResponseMessage response = await CallWebAPI("/oauth/register", CancellationToken.None, arrayContent: content);
             return new Tuple<bool, string>(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         }
 
@@ -371,7 +374,7 @@ namespace BusTrack.Utilities
             {
                 new KeyValuePair<string, string>("email", email)
             };
-            HttpResponseMessage response = await CallWebAPI("/account/forgotpassword", arrayContent: content);
+            HttpResponseMessage response = await CallWebAPI("/account/forgotpassword", CancellationToken.None, arrayContent: content);
             return new Tuple<bool, string>(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         }
 
@@ -405,7 +408,7 @@ namespace BusTrack.Utilities
             {
                 new KeyValuePair<string, string>("token", JObject.Parse(token)["refresh_token"].ToString())
             };
-            HttpResponseMessage response = await CallWebAPI("/oauth/refresh", arrayContent: content, checkLogin: false);
+            HttpResponseMessage response = await CallWebAPI("/oauth/refresh", CancellationToken.None, arrayContent: content, checkLogin: false);
             if (response.IsSuccessStatusCode)
             {
                 token = await response.Content.ReadAsStringAsync();
@@ -422,11 +425,12 @@ namespace BusTrack.Utilities
         /// Method in charge of performs requests to the web server.
         /// </summary>
         /// <param name="urlPath">The url path (excluding base url).</param>
+        /// <param name="token">The cancellation token used for cancel the call.</param>
         /// <param name="context">Android context (default to null). If it's provided, it will be used to retrieve the user token.</param>
         /// <param name="arrayContent">The POST content (default to null). If it's not provided, a GET request will be used instead.</param>
         /// <param name="checkLogin">A flag indicating if before requesting the data, it should check whether OAuth tokens are valids or not.</param>
         /// <returns>A HttpResponseMessage object.</returns>
-        private async static Task<HttpResponseMessage> CallWebAPI(string urlPath, Context context = null, IEnumerable<KeyValuePair<string, string>> arrayContent = null, bool checkLogin = true)
+        private async static Task<HttpResponseMessage> CallWebAPI(string urlPath, CancellationToken token, Context context = null, IEnumerable<KeyValuePair<string, string>> arrayContent = null, bool checkLogin = true)
         {
             using (var client = new HttpClient())
             {
@@ -459,9 +463,14 @@ namespace BusTrack.Utilities
                     if (arrayContent != null)
                     {
                         var content = new FormUrlEncodedContent(arrayContent);
-                        return await client.PostAsync(url, content);
+                        return await client.PostAsync(url, content, token);
                     }
-                    else return await client.GetAsync(url);
+                    else return await client.GetAsync(url, token);
+                }
+                catch (OperationCanceledException e)
+                {
+                    Log.Error(NAME_PREF, Java.Lang.Throwable.FromException(e), "CallWebAPI cancelled!");
+                    return new HttpResponseMessage(HttpStatusCode.RequestTimeout);
                 }
                 catch (Exception e)
                 {

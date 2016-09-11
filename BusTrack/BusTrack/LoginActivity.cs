@@ -5,6 +5,7 @@ using Android.Support.V7.App;
 using Android.Widget;
 using BusTrack.Utilities;
 using System;
+using System.Threading;
 
 namespace BusTrack
 {
@@ -26,11 +27,16 @@ namespace BusTrack
             // Login button
             loginB.Click += async (o, e) =>
             {
+                CancellationTokenSource cts = new CancellationTokenSource();
                 ProgressDialog dialog = new ProgressDialog(this);
                 dialog.Indeterminate = true;
                 dialog.SetProgressStyle(ProgressDialogStyle.Spinner);
                 dialog.SetMessage("Espere por favor...");
-                dialog.SetCancelable(false);
+                dialog.SetCancelable(true);
+                dialog.CancelEvent += (ob, ev) =>
+                {
+                    cts.Cancel();
+                };
                 dialog.Show();
 
                 loginB.Enabled = false;
@@ -38,7 +44,7 @@ namespace BusTrack
                 passF.Text = "";
                 string email = emailF.Text;
 
-                if (await Utils.Login(email, pswd, this))
+                if (await Utils.Login(email, pswd, this, cts.Token))
                 {
                     StartActivity(typeof(MainActivity));
                     Finish();
@@ -48,7 +54,7 @@ namespace BusTrack
                 {
                     loginB.Enabled = true;
                     dialog.Dismiss();
-                    Toast.MakeText(this, "Identificación fallida", ToastLength.Long).Show();
+                    Toast.MakeText(this, cts.IsCancellationRequested ? "Cancelado" : "Identificación fallida", ToastLength.Long).Show();
                 }
             };
 

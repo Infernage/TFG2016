@@ -6,6 +6,7 @@ using Android.Widget;
 using BusTrack.Utilities;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace BusTrack
@@ -25,12 +26,19 @@ namespace BusTrack
 
             MenuInitializer.InitMenu(this);
 
+            CancellationTokenSource cts = new CancellationTokenSource();
+
             // Create a progress dialog meanwhile we retrieve user stats
             ProgressDialog dialog = new ProgressDialog(this);
             dialog.Indeterminate = true;
             dialog.SetProgressStyle(ProgressDialogStyle.Spinner);
             dialog.SetMessage("Recogiendo estadísticas...");
-            dialog.SetCancelable(false);
+            dialog.SetCancelable(true);
+            dialog.CancelEvent += (o, e) =>
+            {
+                cts.Cancel();
+                Toast.MakeText(this, "Cancelado", ToastLength.Long).Show();
+            };
             dialog.Show();
 
             // Init UI
@@ -52,7 +60,7 @@ namespace BusTrack
                 {
                     try
                     {
-                        string resp = await Utils.GetStatistics(this);
+                        string resp = await Utils.GetStatistics(this, cts.Token);
                         if (resp.Length == 0) return;
 
                         var json = JObject.Parse(resp);

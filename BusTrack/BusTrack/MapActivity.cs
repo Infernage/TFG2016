@@ -86,25 +86,30 @@ namespace BusTrack
                         selected = tid;
 
                         if (cache.ContainsKey(tid)) Update(cache[tid]); // Already cached, not needed to send a request
-                        else await Task.Run(() =>
+                        else
                         {
-                            // Do this in a separate thread (Web request)
-                            using (Realm realmClick = Realm.GetInstance(Utils.GetDB(this)))
+                            button.Enabled = false;
+                            await Task.Run(() =>
                             {
-                                PolylineOptions opts = Utils.GetRoute(realmClick.All<Travel>().Where(t => t.id == tid).First());
-                                RunOnUiThread(() => // Modify UI, do it in the correct thread
+                                // Do this in a separate thread (Web request)
+                                using (Realm realmClick = Realm.GetInstance(Utils.GetDB(this)))
                                 {
-                                    Data d = new Data
+                                    PolylineOptions opts = Utils.GetRoute(realmClick.All<Travel>().Where(t => t.id == tid).First());
+                                    RunOnUiThread(() => // Modify UI, do it in the correct thread
                                     {
-                                        opts = opts,
-                                        end = end,
-                                        init = init
-                                    };
-                                    cache.Add(tid, d);
-                                    Update(d);
-                                });
-                            }
-                        });
+                                        button.Enabled = true;
+                                        Data d = new Data
+                                        {
+                                            opts = opts,
+                                            end = end,
+                                            init = init
+                                        };
+                                        cache.Add(tid, d);
+                                        Update(d);
+                                    });
+                                }
+                            });
+                        }
                     };
 
                     // Don't forget to add the button
@@ -123,7 +128,11 @@ namespace BusTrack
         /// <param name="e">Event args sent.</param>
         private void ShowDetails(object sender, EventArgs e)
         {
-            if (selected == -1) return;
+            if (selected == -1)
+            {
+                Toast.MakeText(this, "Selecciona un viaje", ToastLength.Short).Show();
+                return;
+            }
             FragmentTransaction trans = FragmentManager.BeginTransaction();
             Fragment prev = FragmentManager.FindFragmentByTag("details");
             if (prev != null) trans.Remove(prev);
@@ -206,7 +215,6 @@ namespace BusTrack
                 AlertDialog dialog = null;
                 var builder = new AlertDialog.Builder(Activity);
                 builder.SetView(Resource.Layout.DetailsLayout);
-                builder.SetMessage("Detalles");
                 builder.SetPositiveButton("Aceptar", (o, e) => dialog.Dismiss());
 
                 dialog = builder.Create();
