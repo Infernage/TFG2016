@@ -70,12 +70,27 @@ namespace BusTrack
             logout.Click += evt;
             logout.Click += (sender, e) =>
             {
-                Utils.Logout(current);
-                if (!(current is LoginActivity))
+                AlertDialog dialog = null;
+                var builder = new AlertDialog.Builder(current);
+                builder.SetTitle("Desconexión");
+                builder.SetMessage("¿Quieres desconectarte?");
+                builder.SetPositiveButton("Sí", (o, ev) =>
                 {
-                    current.StartActivity(typeof(LoginActivity));
-                    current.Finish();
-                }
+                    dialog.Dismiss();
+                    OAuthUtils.Logout(current);
+                    if (!(current is LoginActivity))
+                    {
+                        current.StartActivity(typeof(LoginActivity));
+                        current.Finish();
+                    }
+                });
+                builder.SetNegativeButton("No", (o, ev) =>
+                {
+                    dialog.Dismiss();
+                });
+
+                dialog = builder.Create();
+                dialog.Show();
             };
         }
     }

@@ -9,6 +9,7 @@ using BusTrack.Utilities;
 using Realms;
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace BusTrack
@@ -16,6 +17,8 @@ namespace BusTrack
     [Activity(Label = "Opciones")]
     public class OptionsActivity : Activity
     {
+        private volatile bool syncing = false;
+
         protected override void OnCreate(Bundle savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
@@ -25,8 +28,13 @@ namespace BusTrack
 
             MenuInitializer.InitMenu(this);
 
-            Button clearData = FindViewById<Button>(Resource.Id.clearButton),
-                modAcc = FindViewById<Button>(Resource.Id.modifyAccount), delAcc = FindViewById<Button>(Resource.Id.deleteAccount);
+            Button clearData = FindViewById<Button>(Resource.Id.clearButton), modAcc = FindViewById<Button>(Resource.Id.modifyAccount),
+                delAcc = FindViewById<Button>(Resource.Id.deleteAccount), netDetection = FindViewById<Button>(Resource.Id.detectButton),
+                timeTravel = FindViewById<Button>(Resource.Id.timeTravelButton), sendDataButton = FindViewById<Button>(Resource.Id.sendDataButton);
+            CheckedTextView sendDataChecker = FindViewById<CheckedTextView>(Resource.Id.sendDataCheck);
+            ISharedPreferences prefs = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private);
+            sendDataChecker.Checked = prefs.GetBoolean("autoSync" + prefs.GetLong(Utils.PREF_USER_ID, -1).ToString(), true);
+            sendDataButton.Enabled = !sendDataChecker.Checked;
 
             clearData.Click += (o, e) =>
             {
@@ -40,12 +48,12 @@ namespace BusTrack
                 });
                 alert.SetPositiveButton("Aceptar", (ob, ev) =>
                 {
-                    using (Realm realm = Realm.GetInstance(Utils.GetDB(this)))
+                    using (Realm realm = Realm.GetInstance(Utils.GetDB()))
                     {
                         int userId = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private).GetInt(Utils.PREF_USER_ID, -1);
                         if (userId == -1)
                         {
-                            Utils.Logout(this);
+                            OAuthUtils.Logout(this);
                             Toast.MakeText(this, "Error: ID de usuario no encontrada", ToastLength.Long).Show();
                             dialog.Dismiss();
                             return;
@@ -85,7 +93,7 @@ namespace BusTrack
                 {
                     try
                     {
-                        if (await Utils.DeleteAccount(this, input.Text))
+                        if (await AccountUtils.DeleteAccount(this, input.Text))
                         {
                             dialog.Dismiss();
                             Finish();
@@ -110,6 +118,200 @@ namespace BusTrack
                 dialog = builder.Create();
                 dialog.Show();
             };
+
+            netDetection.Click += (o, e) =>
+            {
+                FragmentTransaction trans = FragmentManager.BeginTransaction();
+                Fragment prev = FragmentManager.FindFragmentByTag("netDetection");
+                if (prev != null) trans.Remove(prev);
+                trans.AddToBackStack(null);
+                new NetDetectionDialog(this).Show(trans, "netDetection");
+            };
+
+            timeTravel.Click += (o, e) =>
+            {
+                FragmentTransaction trans = FragmentManager.BeginTransaction();
+                Fragment prev = FragmentManager.FindFragmentByTag("timeTravelDet");
+                if (prev != null) trans.Remove(prev);
+                trans.AddToBackStack(null);
+                new TimeTravelDialog(this).Show(trans, "timeTravelDet");
+            };
+
+            sendDataButton.Click += (o, e) =>
+            {
+                if (syncing) return;
+                CancellationTokenSource cts = new CancellationTokenSource();
+
+                // Create a progress dialog meanwhile we retrieve user stats
+                ProgressDialog dialog = new ProgressDialog(this);
+                dialog.Indeterminate = false;
+                dialog.SetProgressStyle(ProgressDialogStyle.Spinner);
+                dialog.SetMessage("Sincronizando datos...");
+                dialog.SetCancelable(true);
+                dialog.CancelEvent += (ob, ev) =>
+                {
+                    cts.Cancel();
+                    Toast.MakeText(this, "Cancelado", ToastLength.Long).Show();
+                };
+                dialog.Show();
+
+                Task.Run(() => Sync());
+            };
+
+            sendDataChecker.Click += (o, e) =>
+            {
+                sendDataButton.Enabled = sendDataChecker.Checked;
+                sendDataChecker.Checked = !sendDataChecker.Checked;
+                ISharedPreferencesEditor edit = prefs.Edit();
+                edit.PutBoolean("autoSync" + prefs.GetLong(Utils.PREF_USER_ID, -1).ToString(), sendDataChecker.Checked);
+                edit.Commit();
+                if (sendDataChecker.Checked && !syncing) Task.Run(() => Sync());
+            };
+        }
+
+        /// <summary>
+        /// Uploads all unsynced travels.
+        /// </summary>
+        /// <param name="cts">A CancellationTokenSource just in the case the user wants to cancel the operation.</param>
+        /// <param name="dialog">The progress dialog.</param>
+        private void Sync(CancellationTokenSource cts = null, ProgressDialog dialog = null)
+        {
+            syncing = true;
+            using (Realm realm = Realm.GetInstance(Utils.GetDB()))
+            {
+                var query = realm.All<Travel>().Where(t => t.synced == false);
+                int total = query.Count();
+                RunOnUiThread(() =>
+                {
+                    if (dialog != null) dialog.Max = total;
+                });
+
+                int progress = 0, failed = 0;
+
+                foreach (Travel travel in query)
+                {
+                    if (cts.IsCancellationRequested)
+                    {
+                        if (dialog != null) dialog.Dismiss();
+                        goto finish;
+                    }
+                    if (RestClient.UploadTravel(this, travel, cts).Result)
+                    {
+                        realm.Write(() => travel.synced = true);
+                        progress++;
+                        RunOnUiThread(() =>
+                        {
+                            if (dialog != null) dialog.Progress = progress;
+                        });
+                    }
+                    else failed++;
+                }
+                if (dialog != null)
+                {
+                    RunOnUiThread(() =>
+                    {
+                        dialog.Dismiss();
+                        Toast.MakeText(this, string.Format("Enviados: {0}, Fallidos: {1}, Totales: {2}", progress, failed, total), ToastLength.Long).Show();
+                    });
+                }
+            }
+
+        finish:
+            syncing = false;
+        }
+    }
+
+    internal class TimeTravelDialog : DialogFragment
+    {
+        private Context context;
+
+        public TimeTravelDialog(Context cont)
+        {
+            context = cont;
+        }
+
+        public override Dialog OnCreateDialog(Bundle savedInstanceState)
+        {
+            base.OnCreateDialog(savedInstanceState);
+
+            // Create dialog
+            AlertDialog dialog;
+            var builder = new AlertDialog.Builder(context);
+            builder.SetView(Resource.Layout.TimeTravelOpt);
+            builder.SetTitle("Tiempo de detección de viaje");
+            builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>)null);
+            builder.SetNegativeButton("Cancelar", (o, e) => Dismiss());
+
+            dialog = builder.Create();
+            dialog.Show();
+
+            TextView text = dialog.FindViewById<TextView>(Resource.Id.textView1);
+            SeekBar bar = dialog.FindViewById<SeekBar>(Resource.Id.seekBar1);
+
+            string format = "{0} segundos";
+            int time = Utils.GetTimeTravelDetection(context);
+
+            text.Text = string.Format(format, time);
+            bar.Progress = time < 3 ? 0 : time - 3;
+            bar.Max = 7;
+            bar.ProgressChanged += (o, e) =>
+            {
+                text.Text = string.Format(format, e.Progress + 3);
+            };
+
+            Button accept = dialog.GetButton((int)DialogButtonType.Positive);
+            accept.Click += (o, e) =>
+            {
+                Utils.SetTimeTravelDetection(context, bar.Progress + 3);
+                dialog.Dismiss();
+            };
+
+            return dialog;
+        }
+    }
+
+    internal class NetDetectionDialog : DialogFragment
+    {
+        private Context context;
+
+        public NetDetectionDialog(Context cont)
+        {
+            context = cont;
+        }
+
+        public override Dialog OnCreateDialog(Bundle savedInstanceState)
+        {
+            base.OnCreateDialog(savedInstanceState);
+
+            // Create dialog
+            AlertDialog dialog;
+            var builder = new AlertDialog.Builder(context);
+            builder.SetView(Resource.Layout.NetDetectionOpt);
+            builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>)null);
+            builder.SetNegativeButton("Cancelar", (o, e) => Dismiss());
+
+            dialog = builder.Create();
+            dialog.Show();
+
+            NumberPicker upPicker = dialog.FindViewById<NumberPicker>(Resource.Id.upPicker),
+                downPicker = dialog.FindViewById<NumberPicker>(Resource.Id.downPicker);
+            Tuple<int, int> stored = Utils.GetNetworkDetection(context);
+
+            // Max value of 70, min value of 40
+            upPicker.MaxValue = downPicker.MaxValue = 70;
+            upPicker.MinValue = downPicker.MinValue = 40;
+
+            upPicker.Value = stored.Item1;
+            downPicker.Value = stored.Item2;
+
+            Button accept = dialog.GetButton((int)DialogButtonType.Positive);
+            accept.Click += (o, e) =>
+            {
+                Utils.SetNetworkDetection(context, new Tuple<int, int>(upPicker.Value, downPicker.Value));
+                dialog.Dismiss();
+            };
+
+            return dialog;
         }
     }
 
@@ -137,15 +339,15 @@ namespace BusTrack
             dialog.Show();
 
             // Get all data & variables
-            ISharedPreferences prefs = Activity.GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private);
+            ISharedPreferences prefs = context.GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private);
             EditText nameF = dialog.FindViewById<EditText>(Resource.Id.amNameF),
                 emailF = dialog.FindViewById<EditText>(Resource.Id.amEmailF),
                 nPassF = dialog.FindViewById<EditText>(Resource.Id.amNewPassF),
                 signF = dialog.FindViewById<EditText>(Resource.Id.amSign);
 
-            string sName = prefs.GetString(Utils.PREF_USER_NAME, "");
+            string sName = prefs.GetString(OAuthUtils.PREF_USER_NAME, "");
             nameF.Text = sName;
-            string sEmail = prefs.GetString(Utils.PREF_USER_EMAIL, "");
+            string sEmail = prefs.GetString(OAuthUtils.PREF_USER_EMAIL, "");
             emailF.Text = sEmail;
 
             Button accept = dialog.GetButton((int)DialogButtonType.Positive);
@@ -173,7 +375,7 @@ namespace BusTrack
                         // If name changed, sync between prefs and server
                         if (!sName.Equals(name))
                         {
-                            if (await Utils.ChangeCredentials(CredentialType.Name, name, Utils.PerformClientHash(sEmail, sign), context)) edit.PutString(Utils.PREF_USER_NAME, name);
+                            if (await AccountUtils.ChangeCredentials(CredentialType.Name, name, OAuthUtils.PerformClientHash(sEmail, sign), context)) edit.PutString(OAuthUtils.PREF_USER_NAME, name);
                             else
                             {
                                 // If something went wrong, tell user and abort
@@ -185,17 +387,17 @@ namespace BusTrack
                         if (!sEmail.Equals(email))
                         {
                             // If something went wrong, tell user and abort
-                            if (!await Utils.ChangeCredentials(CredentialType.Password, Utils.PerformClientHash(email, sign), Utils.PerformClientHash(sEmail, sign), context))
+                            if (!await AccountUtils.ChangeCredentials(CredentialType.Password, OAuthUtils.PerformClientHash(email, sign), OAuthUtils.PerformClientHash(sEmail, sign), context))
                             {
                                 Activity.RunOnUiThread(() => Toast.MakeText(context, Resource.String.SyncErr, ToastLength.Long).Show());
                                 return;
                             }
 
                             // If it's not possible to change email, revert password change
-                            if (await Utils.ChangeCredentials(CredentialType.Email, email, Utils.PerformClientHash(email, sign), context)) edit.PutString(Utils.PREF_USER_EMAIL, email);
+                            if (await AccountUtils.ChangeCredentials(CredentialType.Email, email, OAuthUtils.PerformClientHash(email, sign), context)) edit.PutString(OAuthUtils.PREF_USER_EMAIL, email);
                             else
                             {
-                                await Utils.ChangeCredentials(CredentialType.Password, Utils.PerformClientHash(sEmail, sign), Utils.PerformClientHash(email, sign), context);
+                                await AccountUtils.ChangeCredentials(CredentialType.Password, OAuthUtils.PerformClientHash(sEmail, sign), OAuthUtils.PerformClientHash(email, sign), context);
                                 Activity.RunOnUiThread(() => Toast.MakeText(context, Resource.String.SyncErr, ToastLength.Long).Show());
                                 return;
                             }
@@ -203,9 +405,9 @@ namespace BusTrack
                         // If password changed, sync between prefs and server
                         if (pass.Length != 0)
                         {
-                            string nPass = Utils.PerformClientHash(email, pass);
+                            string nPass = OAuthUtils.PerformClientHash(email, pass);
                             pass = string.Empty;
-                            if (!await Utils.ChangeCredentials(CredentialType.Password, nPass, Utils.PerformClientHash(email, sign), context))
+                            if (!await AccountUtils.ChangeCredentials(CredentialType.Password, nPass, OAuthUtils.PerformClientHash(email, sign), context))
                             {
                                 Activity.RunOnUiThread(() => Toast.MakeText(context, Resource.String.SyncErr, ToastLength.Long).Show());
                                 return;

@@ -1,0 +1,360 @@
+using Android.Content;
+using Android.Locations;
+using Android.Util;
+using BusTrack.Data;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Realms;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace BusTrack.Utilities
+{
+    public class RestClient
+    {
+        private static readonly string WEB_URL = "http://192.168.1.140";
+        private static volatile bool busy = false;
+
+        /// <summary>
+        /// Synchronizes local DB with remote one and flushes any unsynced data.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        public static async Task Sync(Context context)
+        {
+            // Avoid more than 1 synchronization
+            if (busy) return;
+            busy = true;
+
+            HttpResponseMessage response = await CallWebAPI("/backend/all", CancellationToken.None, context);
+            if (response.IsSuccessStatusCode)
+            {
+                var root = JObject.Parse(await response.Content.ReadAsStringAsync());
+                var buses = root["buses"];
+                var stops = root["stops"];
+                var lines = root["lines"];
+
+                using (Realm realm = Realm.GetInstance(Utils.GetDB()))
+                {
+                    // Apply external data
+                    realm.Write(() =>
+                    {
+                        Dictionary<string, Bus> sBuses = new Dictionary<string, Bus>();
+                        Dictionary<long, Line> sLines = new Dictionary<long, Line>();
+
+                        // Sync buses
+                        foreach (JToken btoken in buses)
+                        {
+                            string mac = btoken[nameof(Bus.mac)].ToString();
+                            var bquery = realm.All<Bus>().Where(b => b.mac == mac);
+                            Bus bus = bquery.Any() ? bquery.First() : realm.CreateObject<Bus>();
+                            if (bus.lastRefresh == null || bus.lastRefresh <= btoken[nameof(Bus.lastRefresh)].ToObject<DateTime>()) bus.lastRefresh = btoken[nameof(Bus.lastRefresh)].ToObject<DateTime>();
+                            if (!bquery.Any()) bus.mac = mac;
+                            sBuses.Add(bus.mac, bus);
+                        }
+
+                        // Sync lines
+                        foreach (JToken ltoken in lines)
+                        {
+                            long lid = ltoken[nameof(Line.id)].ToObject<long>();
+                            var lquery = realm.All<Line>().Where(l => l.id == lid);
+                            Line line = lquery.Any() ? lquery.First() : realm.CreateObject<Line>();
+                            if (line.name == null || !line.name.Equals(ltoken[nameof(Line.name)].ToString())) line.name = ltoken[nameof(Line.name)].ToString();
+                            if (!lquery.Any()) line.id = lid;
+
+                            foreach (JToken id in ltoken["buses"])
+                            {
+                                Bus bus = sBuses[id.ToString()];
+                                bus.line = line;
+                            }
+                            sLines.Add(line.id, line);
+                        }
+
+                        // Sync stops
+                        foreach (JToken stoken in stops)
+                        {
+                            long sid = stoken[nameof(Stop.id)].ToObject<long>();
+                            var squery = realm.All<Stop>().Where(s => s.id == sid);
+                            Stop stop = squery.Any() ? squery.First() : realm.CreateObject<Stop>();
+                            Location loc = new Location("");
+                            loc.Latitude = stoken["latitude"].ToObject<double>();
+                            loc.Longitude = stoken["longitude"].ToObject<double>();
+                            if (stop.location.Latitude != loc.Latitude || stop.location.Longitude != loc.Longitude) stop.location = loc;
+                            if (!squery.Any()) stop.id = sid;
+
+                            foreach (JToken id in stoken["lines"])
+                            {
+                                Line line = sLines[id.ToObject<long>()];
+                                if (!stop.lines.Contains(line)) stop.lines.Add(line);
+                                if (!line.stops.Contains(stop)) line.stops.Add(stop);
+                            }
+                            stop.synced = true;
+                        }
+
+                        // Set all new data as synced
+                        sBuses.Values.ToList().ForEach(b => b.synced = true);
+                        sLines.Values.ToList().ForEach(l => l.synced = true);
+                    });
+
+                    // Send unsynced local data
+                    var qb = realm.All<Bus>().Where(b => b.synced == false);
+                    var qs = realm.All<Stop>().Where(s => s.synced == false);
+                    var ql = realm.All<Line>().Where(l => l.synced == false);
+
+                    realm.Write(async () =>
+                    {
+                        // Update buses
+                        foreach (Bus bus in qb)
+                        {
+                            if (!await UpdateBus(context, bus))
+                            {
+                                Bus b = await CreateBus(context, bus);
+                                if (b.synced)
+                                {
+                                    bus.lineId = b.lineId;
+                                    bus.line = realm.All<Line>().Where(l => l.id == b.lineId).First();
+                                    bus.lastRefresh = b.lastRefresh;
+                                    bus.synced = true;
+                                }
+                            }
+                        }
+
+                        // Update lines
+                        foreach (Line line in ql)
+                        {
+                            if (!await UpdateLine(context, line))
+                            {
+                                Line l = await CreateLine(context, line);
+                                if (l.synced)
+                                {
+                                    line.name = l.name;
+                                    foreach (long sid in l.jstops)
+                                    {
+                                        var q = realm.All<Stop>().Where(s => s.id == sid);
+                                        if (q.Any())
+                                        {
+                                            Stop stop = q.First();
+                                            if (!line.stops.Contains(stop)) line.stops.Add(stop);
+                                            if (!stop.lines.Contains(line)) stop.lines.Add(line);
+                                        }
+                                    }
+                                    line.synced = true;
+                                }
+                            }
+                        }
+
+                        // Update stops
+                        foreach (Stop stop in qs)
+                        {
+                            Stop s = await CreateStop(context, stop.location);
+                            if (s.synced)
+                            {
+                                stop.location = s.location;
+                                foreach (long lid in s.jlines)
+                                {
+                                    var q = realm.All<Line>().Where(l => l.id == lid);
+                                    if (q.Any())
+                                    {
+                                        Line line = q.First();
+                                        if (!stop.lines.Contains(line)) stop.lines.Add(line);
+                                        if (!line.stops.Contains(stop)) line.stops.Add(stop);
+                                    }
+                                }
+                                stop.synced = true;
+                            }
+                        }
+                    });
+                }
+            }
+            busy = false;
+        }
+
+        /// <summary>
+        /// Creates a new Bus entity in the remote DB.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <param name="bus">The local entity served as data template.</param>
+        /// <returns>The new entity with remote data or the local entity if something went wrong.</returns>
+        public static async Task<Bus> CreateBus(Context context, Bus bus)
+        {
+            var content = new StringContent(JsonConvert.SerializeObject(bus), Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await CallWebAPI("/backend/buses", CancellationToken.None, context, content, timeout: 10);
+            if (response.IsSuccessStatusCode)
+            {
+                bus = JsonConvert.DeserializeObject<Bus>(await response.Content.ReadAsStringAsync());
+                bus.synced = true;
+            }
+            return bus;
+        }
+
+        /// <summary>
+        /// Updates a Bus entity in the remote DB.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <param name="bus">The local entity with the data to be sent.</param>
+        /// <returns>The success status.</returns>
+        public static async Task<bool> UpdateBus(Context context, Bus bus)
+        {
+            var content = new StringContent(JsonConvert.SerializeObject(bus), Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await CallWebAPI($"/backend/buses/{bus.mac}", CancellationToken.None, context, content, timeout: 10, update: true);
+            return response.IsSuccessStatusCode;
+        }
+
+        /// <summary>
+        /// Creates a new Line entity in the remote DB.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <param name="line">The local entity served as data template.</param>
+        /// <returns>The new entity with remote data or the local entity if something went wrong.</returns>
+        public static async Task<Line> CreateLine(Context context, Line line)
+        {
+            var content = new StringContent(JsonConvert.SerializeObject(line), Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await CallWebAPI("/backend/lines", CancellationToken.None, context, content, timeout: 10);
+            if (response.IsSuccessStatusCode)
+            {
+                line = JsonConvert.DeserializeObject<Line>(await response.Content.ReadAsStringAsync());
+                line.synced = true;
+            }
+            return line;
+        }
+
+        /// <summary>
+        /// Updates a Line entity in the remote DB.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <param name="line">The local entity with the data to be sent.</param>
+        /// <returns>The success status.</returns>
+        public static async Task<bool> UpdateLine(Context context, Line line)
+        {
+            var content = new StringContent(JsonConvert.SerializeObject(line), Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await CallWebAPI($"/backend/lines/{line.id}", CancellationToken.None, context, content, timeout: 10, update: true);
+            return response.IsSuccessStatusCode;
+        }
+
+        /// <summary>
+        /// Creates a new Stop entity in the remote DB.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <param name="location">The local entity served as data template.</param>
+        /// <returns>The new entity with remote data or the local entity if something went wrong.</returns>
+        public static async Task<Stop> CreateStop(Context context, Location location)
+        {
+            Stop stop = new Stop
+            {
+                location = location
+            };
+            var content = new StringContent(JsonConvert.SerializeObject(stop), Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await CallWebAPI("/backend/stops", CancellationToken.None, context, content, timeout: 10);
+            if (response.IsSuccessStatusCode)
+            {
+                stop = JsonConvert.DeserializeObject<Stop>(await response.Content.ReadAsStringAsync());
+                stop.synced = true;
+            }
+            return stop;
+        }
+
+        /// <summary>
+        /// Updates a M:M relationship between a Line entity and a Stop entity.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <param name="line">The Line entity.</param>
+        /// <param name="stop">The Stop entity.</param>
+        /// <returns>The success status.</returns>
+        public static async Task<bool> UpdateLineStop(Context context, Line line, Stop stop)
+        {
+            var json = new
+            {
+                line_id = line.id,
+                stop_id = stop.id
+            };
+            var content = new StringContent(JsonConvert.SerializeObject(json), Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await CallWebAPI("/backend/linestops", CancellationToken.None, context, content, timeout: 10);
+            return response.IsSuccessStatusCode;
+        }
+
+        /// <summary>
+        /// Creates an user travel in the remote DB.
+        /// </summary>
+        /// <param name="context">Android context.</param>
+        /// <param name="travel">The local entity Travel with the data to be sent.</param>
+        /// <param name="cts">A CancellationTokenSource, just in the case the user wants to cancel the operation.</param>
+        /// <returns>The success status.</returns>
+        public static async Task<bool> UploadTravel(Context context, Travel travel, CancellationTokenSource cts = null)
+        {
+            var content = new StringContent(JsonConvert.SerializeObject(travel), Encoding.UTF8, "application/json");
+
+            HttpResponseMessage response = await CallWebAPI("/account/addtravel", cts?.Token ?? CancellationToken.None, context, content, timeout: 10);
+            return response.IsSuccessStatusCode;
+        }
+
+        /// <summary>
+        /// Method in charge of performs requests to the web server.
+        /// </summary>
+        /// <param name="urlPath">The url path (excluding base url).</param>
+        /// <param name="token">The cancellation token used for cancel the call.</param>
+        /// <param name="context">Android context (default to null). If it's provided, it will be used to retrieve the user token.</param>
+        /// <param name="content">The request content (default to null). If it's not provided, a GET request will be used instead.</param>
+        /// <param name="checkLogin">A flag indicating if before requesting the data, it should check whether OAuth tokens are valids or not.</param>
+        /// <param name="timeout">The timeout in seconds.</param>
+        /// <param name="update">A flag indicating if the request content is a new entity or not.</param>
+        /// <returns>A HttpResponseMessage object.</returns>
+        internal async static Task<HttpResponseMessage> CallWebAPI(string urlPath, CancellationToken token, Context context = null, HttpContent content = null,
+            bool checkLogin = true, int timeout = 30, bool update = false)
+        {
+            using (var client = new HttpClient())
+            {
+                // Setup http client
+                client.MaxResponseContentBufferSize = 256000;
+                client.Timeout = TimeSpan.FromSeconds(timeout);
+
+                if (context != null)
+                {
+                    if (checkLogin && !await OAuthUtils.CheckLogin(context))
+                    {
+                        throw new Exception("Relog required");
+                    }
+                    else if (!OAuthUtils.UserLogged(context)) return new HttpResponseMessage(HttpStatusCode.Unauthorized); // Ensure there is an user logged!
+
+                    ISharedPreferences prefs = context.GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private);
+                    if (!prefs.Contains(OAuthUtils.PREF_USER_TOKEN)) return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+
+                    // Set token inside authenticator client
+                    client.DefaultRequestHeaders.Authorization =
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", JObject.Parse(prefs.GetString(OAuthUtils.PREF_USER_TOKEN, ""))["access_token"].ToString());
+                }
+
+                // Build URL
+                var url = new StringBuilder(WEB_URL).Append(urlPath).ToString();
+
+                try
+                {
+                    // Use POST, PUT or GET
+                    if (content != null && !update) return await client.PostAsync(url, content, token);
+                    else if (content != null && update) return await client.PutAsync(url, content, token);
+                    else return await client.GetAsync(url, token);
+                }
+                catch (OperationCanceledException e)
+                {
+                    Log.Error(Utils.NAME_PREF, Java.Lang.Throwable.FromException(e), "CallWebAPI cancelled!");
+                    return new HttpResponseMessage(HttpStatusCode.RequestTimeout);
+                }
+                catch (Exception e)
+                {
+                    Log.Error(Utils.NAME_PREF, Java.Lang.Throwable.FromException(e), "CallWebAPI failed!");
+                    return new HttpResponseMessage(HttpStatusCode.Conflict);
+                }
+            }
+        }
+    }
+}

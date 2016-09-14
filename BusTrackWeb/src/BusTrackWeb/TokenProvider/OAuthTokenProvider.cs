@@ -1,20 +1,22 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Security.Claims;
-using System.IdentityModel.Tokens.Jwt;
-using BusTrackWeb.Models;
+﻿using BusTrackWeb.Models;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
-using System.Security.Principal;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Concurrent;
+using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
+using System.Security.Claims;
+using System.Security.Principal;
+using System.Threading.Tasks;
 
 namespace BusTrackWeb.TokenProvider
 {
-    class OAuthTokenProvider
+    internal class OAuthTokenProvider
     {
         internal static long ToUnixEpochDate(DateTime date) => (long)Math.Round((date.ToUniversalTime() - new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero)).TotalSeconds);
+
         internal static DateTime FromUnixEpochDate(long date) => new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(date);
+
         internal static ConcurrentStack<string> BlackList = new ConcurrentStack<string>();
 
         /// <summary>
@@ -169,7 +171,7 @@ namespace BusTrackWeb.TokenProvider
             using (var context = new TFGContext())
             {
                 // Check if user exists
-                var query = from us in context.User where user == us.email select us;
+                var query = context.User.Include(us => us.Token).Where(us => user == us.email);
                 if (!query.Any()) goto invalid;
 
                 // Get user and compare stored hash with created one
@@ -187,6 +189,11 @@ namespace BusTrackWeb.TokenProvider
                     sub = u.email,
                     User = u
                 };
+                if (u.Token != null)
+                {
+                    UserToken tk = u.Token;
+                    context.Remove(tk);
+                }
                 u.Token = token;
                 context.SaveChanges();
 

@@ -1,22 +1,22 @@
-﻿using System.Linq;
+﻿using BusTrackWeb.Models;
+using BusTrackWeb.TokenProvider;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.IO;
+using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json.Linq;
 using NpgsqlTypes;
-using BusTrackWeb.Models;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using BusTrackWeb.TokenProvider;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc.Authorization;
 using System;
-using System.Threading;
-using System.IdentityModel.Tokens.Jwt;
 using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading;
 
 namespace BusTrackWeb
 {
@@ -55,11 +55,11 @@ namespace BusTrackWeb
 
             services.AddOptions();
 
-            services.AddMvc( config =>
-            {
-                var policy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-                config.Filters.Add(new AuthorizeFilter(policy));
-            });
+            services.AddMvc(config =>
+           {
+               var policy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+               config.Filters.Add(new AuthorizeFilter(policy));
+           });
 
             services.AddAuthorization();
 
@@ -179,7 +179,6 @@ namespace BusTrackWeb
                         name = token["name"].ToString()
                     };
 
-                    LineHasStop last = null;
                     foreach (JToken id in token["stops"].Children())
                     {
                         Stop s = (from stop in context.Stop
@@ -188,13 +187,10 @@ namespace BusTrackWeb
                         LineHasStop ls = new LineHasStop
                         {
                             Line = newLine,
-                            Stop = s,
-                            previous = last != null ? last.Stop.id : null as long?
+                            Stop = s
                         };
-                        if (last != null) last.next = s.id;
                         newLine.LineStops.Add(ls);
                         s.LineStops.Add(ls);
-                        last = ls;
                     }
                 }
                 context.SaveChanges();

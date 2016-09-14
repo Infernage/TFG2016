@@ -60,7 +60,7 @@ namespace BusTrack
                 {
                     try
                     {
-                        string resp = await Utils.GetStatistics(this, cts.Token);
+                        string resp = await AccountUtils.GetStatistics(this, cts.Token);
                         if (resp.Length == 0) return;
 
                         var json = JObject.Parse(resp);

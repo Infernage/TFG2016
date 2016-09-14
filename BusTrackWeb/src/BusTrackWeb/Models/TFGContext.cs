@@ -19,6 +19,7 @@ namespace BusTrackWeb.Models
             modelBuilder.Entity<UserToken>().HasKey(t => new { t.id, t.userId });
             modelBuilder.Entity<UserToken>().Property(t => t.id).ValueGeneratedOnAdd();
         }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseNpgsql(@"Host=localhost;Database=TFG;Username=postgres;Password=root");

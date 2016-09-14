@@ -3,21 +3,20 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BusTrackWeb
 {
     /// <summary>
     /// Manages all embed resources to perform a easy access to them.
     /// </summary>
-    class ResourceManager
+    internal class ResourceManager
     {
         /// <summary>
         /// Resources deployed.
         /// </summary>
-        static readonly IReadOnlyDictionary<string, string> resources;
-        static readonly string prefix = "BusTrackWeb.";
+        private static readonly IReadOnlyDictionary<string, string> resources;
+
+        private static readonly string prefix = "BusTrackWeb.";
 
         /// <summary>
         /// Static constructor.

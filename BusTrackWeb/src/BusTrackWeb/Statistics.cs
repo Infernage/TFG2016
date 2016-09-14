@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 namespace BusTrackWeb
 {
     /// <summary>
-    /// Class in charge of all statistics functionality. 
+    /// Class in charge of all statistics functionality.
     /// </summary>
-    class Statistics
+    internal class Statistics
     {
         public static readonly float POLLUTION_CAR = 119F, POLLUTION_BUS = 104F, POLLUTION_BUS_E = 18.6F;
 

@@ -44,7 +44,7 @@ namespace BusTrack
                 passF.Text = "";
                 string email = emailF.Text;
 
-                if (await Utils.Login(email, pswd, this, cts.Token))
+                if (await OAuthUtils.Login(email, pswd, this, cts.Token))
                 {
                     StartActivity(typeof(MainActivity));
                     Finish();
@@ -110,7 +110,7 @@ namespace BusTrack
                     accept.Enabled = false;
                     accept.Text = "Espere por favor";
 
-                    Tuple<bool, string> response = await Utils.Forgot(email);
+                    Tuple<bool, string> response = await AccountUtils.Forgot(email);
                     if (response.Item1)
                     {
                         Toast.MakeText(this, "Se ha enviado un correo a la dirección especificada", ToastLength.Long).Show();
@@ -182,7 +182,7 @@ namespace BusTrack
                 accept.Enabled = false;
                 accept.Text = "Espere por favor";
 
-                Tuple<bool, string> response = await Utils.Register(name, email, pass);
+                Tuple<bool, string> response = await OAuthUtils.Register(name, email, pass);
                 if (response.Item1) Dismiss();
                 else
                 {

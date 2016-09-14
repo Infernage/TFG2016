@@ -3,35 +3,60 @@ using Newtonsoft.Json;
 using Realms;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 
 namespace BusTrack.Data
 {
-    public class Stop : RealmObject
+    public class Stop : RealmObject, INotifyPropertyChanged
     {
-        [JsonProperty("id")]
-        [ObjectId]
+        public Stop()
+        {
+            synced = false;
+            PropertyChanged += SetUnsynced;
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private void SetUnsynced(object sender, PropertyChangedEventArgs args)
+        {
+            if (synced && !args.PropertyName.Equals("synced")) synced = false;
+        }
+
+        [PrimaryKey]
         public long id { get; set; }
 
-        [Ignored] // Just in case
+        private double latitude { get; set; }
+        private double longitude { get; set; }
+
+        [JsonProperty("lines")]
+        [Ignored]
+        public List<long> jlines { get; set; }
+
+        [JsonIgnore]
+        public bool synced { get; set; }
+
+        [JsonIgnore]
+        [Ignored]
         public Location location
         {
             get
             {
                 Location value = new Location("");
-                value.Latitude = lat;
-                value.Longitude = lon;
+                value.Latitude = latitude;
+                value.Longitude = longitude;
                 return value;
             }
             set
             {
                 if (value == null) throw new Exception("Location database added is null!");
-                lat = value.Latitude;
-                lon = value.Longitude;
+                latitude = value.Latitude;
+                longitude = value.Longitude;
             }
         }
 
+        [JsonIgnore]
         [Ignored]
         public string locationString
         {
@@ -41,32 +66,12 @@ namespace BusTrack.Data
             }
         }
 
-        [JsonProperty("realmLines")]
+        [JsonIgnore]
         public RealmList<Line> lines { get; }
-
-        public RealmList<Travel> initTravels { get; }
-        public RealmList<Travel> endingTravels { get; }
-
-        private double lat { get; set; }
-        private double lon { get; set; }
-
-        /// <summary>
-        /// Ignored in realm
-        /// </summary>
-        [JsonProperty("position")]
-        [Ignored]
-        public string position { get; set; }
-
-        /// <summary>
-        /// Ignored in realm
-        /// </summary>
-        [JsonProperty("lines")]
-        [Ignored]
-        public List<int> lineIds { get; set; }
 
         public void GenerateID(Realm realm)
         {
-            var query = realm.All<Stop>().OrderByDescending(s => s.id);
+            var query = realm.All<Stop>().OrderByDescending(t => t.id);
             id = query.Any() ? query.First().id + 1 : 1;
         }
     }

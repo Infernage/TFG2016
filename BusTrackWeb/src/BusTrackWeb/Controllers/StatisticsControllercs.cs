@@ -1,9 +1,9 @@
-﻿using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
+﻿using BusTrackWeb.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
-using BusTrackWeb.Models;
+using System.Linq;
+using System.Threading.Tasks;
 
 // For more information on enabling MVC for empty projects, visit http://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -30,6 +30,7 @@ namespace BusTrackWeb.Controllers
             {
                 case "json":
                     return new OkObjectResult(JsonConvert.SerializeObject(ViewData, _serializer));
+
                 default:
                 case "ui":
                     return View();

@@ -21,8 +21,8 @@ namespace BusTrack
     public class MapActivity : Activity, IOnMapReadyCallback
     {
         private GoogleMap map = null;
-        private Dictionary<int, Data> cache;
-        private int selected = -1;
+        private Dictionary<long, Data> cache;
+        private long selected = -1;
 
         public void OnMapReady(GoogleMap googleMap)
         {
@@ -44,7 +44,7 @@ namespace BusTrack
             RequestWindowFeature(WindowFeatures.NoTitle);
 
             SetContentView(Resource.Layout.Map);
-            cache = new Dictionary<int, Data>();
+            cache = new Dictionary<long, Data>();
 
             LinearLayout layout = FindViewById<LinearLayout>(Resource.Id.travelsLayout);
             layout.Enabled = false;
@@ -56,7 +56,7 @@ namespace BusTrack
 
             FindViewById<Button>(Resource.Id.detButton).Click += ShowDetails;
 
-            using (Realm realm = Realm.GetInstance(Utils.GetDB(this)))
+            using (Realm realm = Realm.GetInstance(Utils.GetDB()))
             {
                 long id = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private).GetLong(Utils.PREF_USER_ID, -1);
                 var query = realm.All<Travel>().Where(t => t.userId == id);
@@ -76,7 +76,7 @@ namespace BusTrack
                 {
                     if (travel.end == null && travel.time == 0) continue; // Unfinished travel
 
-                    int tid = travel.id;
+                    long tid = travel.id;
                     Location init = travel.init.location, end = travel.end.location;
 
                     Button button = new Button(this);
@@ -92,9 +92,9 @@ namespace BusTrack
                             await Task.Run(() =>
                             {
                                 // Do this in a separate thread (Web request)
-                                using (Realm realmClick = Realm.GetInstance(Utils.GetDB(this)))
+                                using (Realm realmClick = Realm.GetInstance(Utils.GetDB()))
                                 {
-                                    PolylineOptions opts = Utils.GetRoute(realmClick.All<Travel>().Where(t => t.id == tid).First());
+                                    PolylineOptions opts = GoogleUtils.GetRoute(realmClick.All<Travel>().Where(t => t.id == tid).First());
                                     RunOnUiThread(() => // Modify UI, do it in the correct thread
                                     {
                                         button.Enabled = true;
@@ -189,7 +189,7 @@ namespace BusTrack
     /// </summary>
     internal class DetailsDialog : DialogFragment
     {
-        private int travel;
+        private long travel;
         private Context context;
 
         public DetailsDialog()
@@ -197,7 +197,7 @@ namespace BusTrack
             travel = -1;
         }
 
-        public DetailsDialog(Context c, int travelId)
+        public DetailsDialog(Context c, long travelId)
         {
             context = c;
             travel = travelId;
@@ -207,7 +207,7 @@ namespace BusTrack
         {
             if (travel == -1) return base.OnCreateDialog(savedInstanceState);
 
-            using (Realm realm = Realm.GetInstance(Utils.GetDB(context)))
+            using (Realm realm = Realm.GetInstance(Utils.GetDB()))
             {
                 Travel t = realm.All<Travel>().Where(tr => tr.id == travel).First();
 

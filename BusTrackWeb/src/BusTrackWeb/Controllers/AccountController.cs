@@ -1,23 +1,23 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
-using Microsoft.Extensions.Logging;
+﻿using BusTrackWeb.Models;
 using BusTrackWeb.TokenProvider;
-using Microsoft.AspNetCore.Authorization;
-using BusTrackWeb.Models;
-using System.Security.Cryptography;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Microsoft.Extensions.Options;
-using MimeKit;
-using MailKit.Net.Smtp;
-using Microsoft.AspNetCore.Cryptography.KeyDerivation;
-using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json.Linq;
 using GeoCoordinatePortable;
+using MailKit.Net.Smtp;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cryptography.KeyDerivation;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using MimeKit;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace BusTrackWeb.Controllers
 {
@@ -42,6 +42,7 @@ namespace BusTrackWeb.Controllers
         }
 
         #region Anonymous access
+
         [HttpGet]
         [AllowAnonymous]
         public async Task<ActionResult> Confirm([FromQuery] long userId, [FromQuery] string code, [FromQuery] long exp)
@@ -369,152 +370,52 @@ namespace BusTrackWeb.Controllers
 
         [HttpPost]
         [Authorize]
-        public ActionResult Sync([FromForm] long id, [FromForm] string obj)
+        public ActionResult AddTravel([FromBody] Travel item)
         {
             using (var context = new TFGContext())
             {
-                User user = GetUser(id, context);
-                if (user == null) return BadRequest("Non existent user");
+                if (item == null || item.initId == 0 || item.time == 0 || item.busId.Length == 0 ||
+                    item.lineId == 0) return BadRequest();
 
-                var json = JObject.Parse(obj);
-                var buses = json["buses"].Children();
-                var stops = json["stops"].Children();
-                var lines = json["lines"].Children();
-                var travels = json["travels"].Children();
-                
-                // Insert buses
-                Dictionary<string, Bus> sBuses = new Dictionary<string, Bus>();
-                foreach (JToken token in buses)
+                var ql = context.Line.Where(l => l.id == item.lineId);
+                var qb = context.Bus.Where(b => b.mac.Equals(item.busId));
+                var qi = context.Stop.Where(s => s.id == item.initId);
+                var qe = context.Stop.Where(s => s.id == item.endId);
+                var qu = context.User.Where(u => u.id == item.userId);
+
+                if (ql.Any() && qb.Any() && qi.Any())
                 {
-                    var query = context.Bus.Where(b => b.mac.Equals(token[nameof(Bus.mac)].ToString(), StringComparison.Ordinal));
-                    if (query.Any())
-                    {
-                        sBuses.Add(query.First().mac, query.First());
+                    Line line = ql.First();
+                    Bus bus = qb.First();
+                    Stop init = qi.First();
+                    context.Travel.Add(item);
 
-                        if (token[nameof(Bus.lastRefresh)].ToObject<DateTime>() <= query.First().lastRefresh) continue; // Already in!
+                    item.Line = line;
+                    line.Travels.Add(item);
+                    item.Bus = bus;
+                    bus.Travels.Add(item);
+                    item.Init = init;
+                    init.InitialTravels.Add(item);
 
-                        query.First().lastRefresh = token[nameof(Bus.lastRefresh)].ToObject<DateTime>();
-                    }
-                    else
+                    if (qe.Any())
                     {
-                        Bus b = new Bus
-                        {
-                            lastRefresh = token[nameof(Bus.lastRefresh)].ToObject<DateTime>(),
-                            mac = token[nameof(Bus.mac)].ToString()
-                        };
-                        context.Bus.Add(b);
-                        sBuses.Add(b.mac, b);
+                        Stop end = qe.First();
+                        item.End = end;
+                        end.EndingTravels.Add(item);
                     }
+
+                    if (qu.Any())
+                    {
+                        User user = qu.First();
+                        item.User = user;
+                        user.Travels.Add(item);
+                    }
+
+                    context.SaveChanges();
                 }
-                context.SaveChanges();
+                else return BadRequest("Inexistent IDs found");
 
-                // Insert lines and link with buses
-                Dictionary<long, Line> sLines = new Dictionary<long, Line>();
-                foreach (JToken token in lines)
-                {
-                    Line line;
-                    var query = context.Line.Where(l => l.name.Equals(token[nameof(Line.name)].ToString(), StringComparison.Ordinal));
-                    if (query.Any())
-                    {
-                        line = query.First();
-                    }
-                    else
-                    {
-                        line = new Line
-                        {
-                            name = token[nameof(Line.name)].ToString()
-                        };
-                        context.Line.Add(line);
-                    }
-                    sLines.Add(token[nameof(Line.id)].ToObject<long>(), line);
-
-                    // Link with buses
-                    foreach (JToken jsonId in token["buses"].Children())
-                    {
-                        Bus b = sBuses[jsonId[nameof(Bus.mac)].ToString()];
-                        line.Buses.Add(b);
-                        b.Line = line;
-                    }
-                }
-                context.SaveChanges();
-
-                // Insert stops and link with lines
-                Dictionary<long, Stop> sStops = new Dictionary<long, Stop>();
-                foreach (JToken token in stops)
-                {
-                    Stop stop;
-                    var query = context.Stop.Where(s => new GeoCoordinate(token["lat"].ToObject<double>(), token["lon"].ToObject<double>())
-                                                        .GetDistanceTo(new GeoCoordinate(s.position.X, s.position.Y)) <= 5);
-                    if (query.Any())
-                    {
-                        stop = query.First();
-                    }
-                    else
-                    {
-                        stop = new Stop
-                        {
-                            position = new NpgsqlTypes.NpgsqlPoint(token["lat"].ToObject<double>(), token["lon"].ToObject<double>())
-                        };
-                        context.Stop.Add(stop);
-                    }
-                    sStops.Add(token[nameof(Stop.id)].ToObject<long>(), stop);
-
-                    // Link with lines
-                    foreach (JToken jsonId in token["stops"].Children())
-                    {
-                        Line line = sLines[jsonId[nameof(Line.id)].ToObject<long>()];
-                        LineHasStop ls = new LineHasStop
-                        {
-                            Line = line,
-                            Stop = stop
-                        };
-                        line.LineStops.Add(ls);
-                        stop.LineStops.Add(ls);
-                    }
-                }
-                context.SaveChanges();
-
-                // Insert travels and link with everything
-                foreach (JToken token in travels)
-                {
-                    if (token[nameof(Travel.userId)].ToObject<long>() != user.id) continue; // Em... No, we can't add a travel from another user :|
-
-                    Bus b = sBuses[token[nameof(Travel.busId)].ToString()];
-                    Line l = sLines[token[nameof(Travel.lineId)].ToObject<long>()];
-                    Stop init = sStops[token[nameof(Travel.initId)].ToObject<long>()],
-                        end = sStops[token[nameof(Travel.endId)].ToObject<long>()];
-
-                    // Each travel is unique, or at least we'll consider it this way
-                    Travel travel = new Travel
-                    {
-                        distance = token[nameof(Travel.distance)].ToObject<long>(),
-                        time = token[nameof(Travel.time)].ToObject<int>(),
-                        date = token[nameof(Travel.date)].ToObject<DateTime>(),
-                        Bus = b,
-                        Line = l,
-                        Init = init,
-                        End = end,
-                        User = user
-                    };
-
-                    // Performs links between all
-                    b.Travels.Add(travel);
-                    l.Travels.Add(travel);
-                    init.InitialTravels.Add(travel);
-                    end.EndingTravels.Add(travel);
-                    user.Travels.Add(travel);
-                }
-                context.SaveChanges();
-
-                // Give a JSON response from static DB -> (Stops - Lines - Buses)
-                var response = new
-                {
-                    lines = context.Line,
-                    stops = context.Stop,
-                    line_stops = context.LineHasStop,
-                    buses = context.Bus
-                };
-                return new OkObjectResult(JsonConvert.SerializeObject(response, _serializer));
+                return Ok();
             }
         }
 
@@ -547,7 +448,7 @@ namespace BusTrackWeb.Controllers
         }
 
         /// <summary>
-        /// Gets a User object through its ID. 
+        /// Gets a User object through its ID.
         /// </summary>
         /// <param name="id">The user ID.</param>
         /// <param name="context">The DB context.</param>
@@ -558,6 +459,6 @@ namespace BusTrackWeb.Controllers
             return query.Any() ? query.First() : null;
         }
 
-        #endregion Helpers Methods
+        #endregion Helpers methods
     }
 }

@@ -37,7 +37,7 @@ namespace BusTrack
                     using (Realm realm = Realm.GetInstance(Utils.NAME_PREF))
                     {
                         string busAp = prefs.GetString(currentAp, null);
-                        int travelId = prefs.GetInt(currentTravel, -1);
+                        long travelId = prefs.GetLong(currentTravel, -1);
                         var results = realm.All<Travel>().Where(t => t.id == travelId);
                         Travel current = results.Count() > 0 ? results.First() : null;
                         Dictionary<string, Tuple<Stopwatch, Location>> candidates = new Dictionary<string, Tuple<Stopwatch, Location>>();
@@ -65,7 +65,7 @@ namespace BusTrack
 
                                     // Store last state
                                     ISharedPreferencesEditor editor = prefs.Edit();
-                                    editor.PutInt(currentTravel, current.id);
+                                    editor.PutLong(currentTravel, current.id);
                                     editor.PutString(currentAp, busAp);
                                     editor.Apply();
 
@@ -81,15 +81,23 @@ namespace BusTrack
                                 if (ScanDown(wifi, location, busAp, candidates, out end))
                                 {
                                     NotificationManager notificator = GetSystemService(NotificationService) as NotificationManager;
-                                    notificator.Cancel("correctTravel", current.id);
+                                    notificator.Cancel("correctTravel", (int)current.id);
 
                                     // User finished travel
                                     candidates[busAp].Item1.Reset();
                                     candidates.Clear();
                                     Stop nearest = FindNearestStop(end, realm);
-                                    long distance = Utils.GetDistance(current.init, nearest);
+                                    long distance = GoogleUtils.GetDistance(current.init, nearest);
+                                    Bus bus = current.bus;
                                     realm.Write(() =>
                                     {
+                                        if (bus.lineId != current.line?.id && current.line != null)
+                                        {
+                                            bus.line = current.line;
+                                            bus.lineId = current.line.id;
+                                            bus.lastRefresh = DateTime.Now;
+                                            if (RestClient.UpdateBus(this, bus).Result) bus.synced = true;
+                                        }
                                         current.time = DateTimeOffset.Now.Subtract(current.date).Seconds;
                                         current.distance = distance;
                                         current.end = nearest;
@@ -97,10 +105,18 @@ namespace BusTrack
                                         // If we know the line, check if it's necessary to update line and stop
                                         if (current.line != null && !nearest.lines.Contains(current.line))
                                         {
+                                            RestClient.UpdateLineStop(this, current.line, nearest).Wait();
                                             if (!nearest.lines.Contains(current.line)) nearest.lines.Add(current.line);
                                             if (!current.line.stops.Contains(nearest)) current.line.stops.Add(nearest);
                                         }
                                     });
+
+                                    // If auto sync is enabled, upload travel to server
+                                    if (prefs.GetBoolean("autoSync" + prefs.GetLong(Utils.PREF_USER_ID, -1).ToString(), true))
+                                    {
+                                        // If upload was OK, mark as synced
+                                        if (RestClient.UploadTravel(this, current).Result) realm.Write(() => current.synced = true);
+                                    }
 
                                     // Reset variables
                                     busAp = null;
@@ -111,6 +127,11 @@ namespace BusTrack
                                     editor.Remove(currentTravel);
                                     editor.Remove(currentAp);
                                     editor.Apply();
+
+                                    // Sync DB
+#pragma warning disable CS4014
+                                    RestClient.Sync(this);
+#pragma warning restore CS4014
                                 }
                             }
                             realm.Refresh();
@@ -167,12 +188,11 @@ namespace BusTrack
             if (nearestStops.Count == 0)
             {
                 // No stored stop! Create new one
+                nearest = RestClient.CreateStop(this, current).Result;
                 realm.Write(() =>
                 {
-                    var stop = realm.CreateObject<Stop>();
-                    stop.location = current;
-                    stop.GenerateID(realm);
-                    nearest = stop;
+                    if (!nearest.synced) nearest.GenerateID(realm);
+                    realm.Manage(nearest);
                 });
             }
             else nearest = nearestStops[0] as Stop;
@@ -194,7 +214,7 @@ namespace BusTrack
             bool notFound = true;
             foreach (ScanResult ap in wifi.Results)
             {
-                if (ap.Bssid.Equals(busAp) && ap.Level >= -70)
+                if (ap.Bssid.Equals(busAp) && ap.Level <= (Utils.GetNetworkDetection(this).Item2 * -1))
                 {
                     // User still travelling
                     notFound = false;
@@ -242,7 +262,7 @@ namespace BusTrack
             // Check if any network is being received
             foreach (ScanResult ap in wifi.Results)
             {
-                if (apNames.Contains(ap.Ssid) && ap.Level > -70)
+                if (apNames.Contains(ap.Ssid) && ap.Level > (Utils.GetNetworkDetection(this).Item1 * -1))
                 {
                     // New possible network!
                     if (!candidates.Keys.Contains(ap.Bssid)) candidates.Add(ap.Bssid, Tuple.Create(Stopwatch.StartNew(), location.LastLocation));
@@ -276,7 +296,7 @@ namespace BusTrack
 
             foreach (string cand in candidates.Keys)
             {
-                if (candidates[cand].Item1.Elapsed.Seconds >= 5)
+                if (candidates[cand].Item1.Elapsed.Seconds >= Utils.GetTimeTravelDetection(this))
                 {
                     // Bus caught!
                     busAp = cand;
@@ -286,30 +306,22 @@ namespace BusTrack
                     // Search stop
                     Stop nearest = FindNearestStop(location, realm);
 
+                    // Create/Get bus
+                    var buses = realm.All<Bus>().Where(b => b.mac == busAp);
+                    Bus bus = buses.Any() ? buses.First() : RestClient.CreateBus(this, new Bus { lastRefresh = DateTime.Now, mac = busAp }).Result;
+
                     // Create travel object
                     realm.Write(() =>
                     {
-                        // Get current bus
-                        Bus currentBus;
-                        string ap = busAp;
-                        var buses = realm.All<Bus>().Where(b => b.mac == ap);
-                        if (buses.Count() == 0)
-                        {
-                            // Not added yet to DB!
-                            currentBus = realm.CreateObject<Bus>();
-                            currentBus.mac = ap;
-                        }
-                        else currentBus = buses.First();
-
+                        if (!buses.Any()) realm.Manage(bus);
                         // Create new travel
                         current = realm.CreateObject<Travel>();
                         ISharedPreferences prefs = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private);
                         current.userId = prefs.GetLong(Utils.PREF_USER_ID, -1);
                         current.date = DateTimeOffset.Now;
-                        current.bus = currentBus;
+                        current.bus = bus;
                         current.init = nearest;
                         current.GenerateID(realm);
-                        currentBus.travels.Add(current);
                     });
 
                     // Search which line owns the stop
@@ -341,7 +353,7 @@ namespace BusTrack
 
                         if (lines.Count > 1)
                         {
-                            List<int> ids = new List<int>();
+                            List<long> ids = new List<long>();
                             foreach (Line l in lines)
                             {
                                 ids.Add(l.id);
@@ -350,7 +362,7 @@ namespace BusTrack
                         }
 
                         Notification notif = builder.Build();
-                        notificator.Notify("updateTravel", current.id, notif);
+                        notificator.Notify("updateTravel", (int)current.id, notif);
                     }
                     else
                     {
@@ -358,16 +370,17 @@ namespace BusTrack
                         builder.SetContentTitle("Viaje detectado");
 
                         Notification notif = builder.Build();
-                        notificator.Notify("correctTravel", current.id, notif);
+                        notificator.Notify("correctTravel", (int)current.id, notif);
                         realm.Write(() =>
                         {
-                            current.init = nearest;
                             current.line = lines.First();
                             // Bus outdated or new one created!
-                            if ((current.bus.line != null && current.line != null && current.bus.line.id != current.line.id) || (current.bus.line == null && current.line != null))
+                            if ((bus.line != null && current.line != null && bus.line.id != current.line.id) || (bus.line == null && current.line != null))
                             {
-                                current.bus.line = current.line;
-                                current.bus.lastRefresh = DateTimeOffset.Now;
+                                bus.line = current.line;
+                                bus.lineId = current.line.id;
+                                bus.lastRefresh = DateTimeOffset.Now;
+                                if (RestClient.UpdateBus(this, bus).Result) bus.synced = true;
                             }
                         });
                     }

@@ -1,19 +1,19 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
+﻿using BusTrackWeb.Models;
 using BusTrackWeb.TokenProvider;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
+using MailKit.Net.Smtp;
 using Microsoft.AspNetCore.Authorization;
-using BusTrackWeb.Models;
-using System.Security.Cryptography;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
-using System.Text;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using MimeKit;
-using MailKit.Net.Smtp;
+using Newtonsoft.Json;
+using System;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace BusTrackWeb.Controllers
 {

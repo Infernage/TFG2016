@@ -1,21 +1,16 @@
 ﻿using Android.App;
 using Android.Content;
 using Android.Graphics;
-using Android.Locations;
 using Android.Net.Wifi;
 using Android.OS;
 using Android.Views;
 using Android.Widget;
 using BusTrack.Data;
 using BusTrack.Utilities;
-using Newtonsoft.Json.Linq;
 using Realms;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Threading;
 
 namespace BusTrack
 {
@@ -28,13 +23,15 @@ namespace BusTrack
         {
             base.OnCreate(bundle);
             RequestWindowFeature(WindowFeatures.NoTitle);
-            if (!await Utils.CheckLogin(this))
+            if (!await OAuthUtils.CheckLogin(this))
             {
                 StartActivity(typeof(LoginActivity));
                 Finish();
                 return;
             }
-            CheckDBIntegrity();
+#pragma warning disable CS4014
+            RestClient.Sync(this);
+#pragma warning restore CS4014
 
             // Set our view from the "main" layout resource
             SetContentView(Resource.Layout.Main);
@@ -60,7 +57,7 @@ namespace BusTrack
             // Set user name in welcome message
             TextView welcome = FindViewById<TextView>(Resource.Id.welcome);
             string text = welcome.Text;
-            welcome.Text = text.Replace("<user>", prefs.GetString(Utils.PREF_USER_NAME, "Usuario"));
+            welcome.Text = text.Replace("<user>", prefs.GetString(OAuthUtils.PREF_USER_NAME, "Usuario"));
 
             // Add network functionality
             Button addNetwork = FindViewById<Button>(Resource.Id.addNetwork);
@@ -133,77 +130,6 @@ namespace BusTrack
 
             adapter?.UpdateDetected(nets);
         }
-
-        /// <summary>
-        /// Checks if DB is filled with, at least, JSON data.
-        /// </summary>
-        private void CheckDBIntegrity()
-        {
-            using (Realm realm = Realm.GetInstance(Utils.GetDB(this)))
-            {
-                var stops = realm.All<Stop>();
-                var lines = realm.All<Line>();
-                string json;
-
-                // Read JSON file
-                using (StreamReader sr = new StreamReader(Assets.Open("emt.json")))
-                {
-                    json = sr.ReadToEnd();
-                }
-                var stopsLines = JObject.Parse(json);
-
-                // Get each list size
-                long linesSize = stopsLines["linesSize"].ToObject<long>();
-                long stopsSize = stopsLines["stopsSize"].ToObject<long>();
-                if (stopsSize > stops.Count())
-                {
-                    // Stop list is outdated!
-                    realm.Write(() =>
-                    {
-                        var ci = CultureInfo.GetCultureInfo("en-US");
-                        var jStops = stopsLines["stops"].Children();
-                        foreach (JToken token in jStops)
-                        {
-                            Stop stop = token.ToObject<Stop>();
-                            Stop newStop = realm.CreateObject<Stop>();
-                            newStop.id = stop.id;
-                            string[] location = stop.position.Split('&');
-                            Location loc = new Location("");
-                            loc.Latitude = double.Parse(location[0], ci);
-                            loc.Longitude = double.Parse(location[1], ci);
-                            newStop.location = loc;
-                        }
-                    });
-                }
-                if (linesSize > lines.Count())
-                {
-                    // Line list is outdated!
-                    realm.Write(() =>
-                    {
-                        var jLines = stopsLines["lines"].Children();
-                        foreach (JToken token in jLines)
-                        {
-                            Line line = token.ToObject<Line>();
-                            Line newLine = realm.CreateObject<Line>();
-                            newLine.id = line.id;
-                            newLine.name = line.name;
-
-                            foreach (long id in line.stopIds)
-                            {
-                                // Get each stop
-                                Stop s = (from stop in realm.All<Stop>()
-                                          where stop.id == id
-                                          select stop).First();
-
-                                // Add every stop to each line and viceversa
-                                newLine.stops.Add(s);
-                                s.lines.Add(newLine);
-                            }
-                        }
-                    });
-                }
-            }
-        }
     }
 
     /// <summary>
@@ -231,7 +157,7 @@ namespace BusTrack
         {
             if (travel == -1) return base.OnCreateDialog(savedInstanceState);
 
-            using (Realm realm = Realm.GetInstance(Utils.GetDB(activity)))
+            using (Realm realm = Realm.GetInstance(Utils.GetDB()))
             {
                 // Get objects from DB
                 Travel t = realm.All<Travel>().Where(tr => tr.id == travel).First();
@@ -259,7 +185,7 @@ namespace BusTrack
                     Line line = null;
                     foreach (Line l in realmLines)
                     {
-                        RadioButton radio = dialog.FindViewById<RadioButton>(l.id);
+                        RadioButton radio = dialog.FindViewById<RadioButton>((int)l.id);
                         if (radio.Checked)
                         {
                             line = l;
@@ -277,17 +203,21 @@ namespace BusTrack
                             if ((t.bus.line != null && t.bus.line.id != t.line.id) || (t.bus.line == null))
                             {
                                 t.bus.line = t.line;
+                                t.bus.lineId = t.line.id;
                                 t.bus.lastRefresh = DateTimeOffset.Now;
+                                if (RestClient.UpdateBus(activity, t.bus).Result) t.bus.synced = true;
                             }
 
                             if (t.init != null)
                             {
+                                if (!t.init.lines.Contains(line) || !line.stops.Contains(t.init)) RestClient.UpdateLineStop(activity, line, t.init).Wait();
                                 if (!t.init.lines.Contains(line)) t.init.lines.Add(line);
                                 if (!line.stops.Contains(t.init)) line.stops.Add(t.init);
                             }
 
                             if (t.end != null)
                             {
+                                if (!t.end.lines.Contains(line) || !line.stops.Contains(t.end)) RestClient.UpdateLineStop(activity, line, t.end).Wait();
                                 if (!t.end.lines.Contains(line)) t.end.lines.Add(line);
                                 if (!line.stops.Contains(t.end)) line.stops.Add(t.end);
                             }
@@ -304,7 +234,7 @@ namespace BusTrack
                     RadioButton button = new RadioButton(Activity);
                     button.LayoutParameters = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
                     button.SetText(l.id.ToString() + " - " + l.name, TextView.BufferType.Normal);
-                    button.Id = l.id;
+                    button.Id = (int)l.id;
                     group.AddView(button);
                 }
 
@@ -336,7 +266,7 @@ namespace BusTrack
         {
             if (travel == -1) return base.OnCreateDialog(savedInstanceState);
 
-            using (Realm realm = Realm.GetInstance(Utils.GetDB(activity)))
+            using (Realm realm = Realm.GetInstance(Utils.GetDB()))
             {
                 Travel t = realm.All<Travel>().Where(tr => tr.id == travel).First();
 
@@ -351,7 +281,7 @@ namespace BusTrack
                 dialog.Show();
 
                 Button accept = dialog.GetButton((int)DialogButtonType.Positive);
-                accept.Click += (o, e) =>
+                accept.Click += async (o, e) =>
                 {
                     EditText number = dialog.FindViewById<EditText>(Resource.Id.editText1), name = dialog.FindViewById<EditText>(Resource.Id.editText2);
 
@@ -362,33 +292,42 @@ namespace BusTrack
                         int lineNumber = -1;
                         int.TryParse(number.Text, out lineNumber);
 
-                        var lines = realm.All<Line>().Where(l => l.id == lineNumber);
-
-                        realm.Write(() =>
+                        await realm.WriteAsync(async (r) =>
                         {
-                            Line line = lines.Count() > 0 ? lines.First() : realm.CreateObject<Line>();
-                            if (lines.Count() == 0)
+                            var lines = r.All<Line>().Where(l => l.id == lineNumber);
+
+                            Line line = lines.Any() ? lines.First() : await RestClient.CreateLine(activity, new Line { id = lineNumber, name = name.Text });
+                            if (!lines.Any())
                             {
                                 if (lineNumber != -1) line.id = lineNumber;
-                                string n = name.Text;
-                                line.name = n;
+                                else line.GenerateID(r);
+                                r.Manage(line);
+                            }
+                            if (!line.name.Equals(name.Text))
+                            {
+                                line.name = name.Text;
+                                if (RestClient.UpdateLine(activity, line).Result) line.synced = true;
                             }
                             t.line = line;
 
                             if ((t.bus.line != null && t.bus.line.id != t.line.id) || (t.bus.line == null))
                             {
                                 t.bus.line = t.line;
+                                t.bus.lineId = t.line.id;
                                 t.bus.lastRefresh = DateTimeOffset.Now;
+                                if (RestClient.UpdateBus(activity, t.bus).Result) t.bus.synced = true;
                             }
 
                             if (t.init != null)
                             {
+                                if (!t.init.lines.Contains(line) || !line.stops.Contains(t.init)) RestClient.UpdateLineStop(activity, line, t.init).Wait();
                                 if (!t.init.lines.Contains(line)) t.init.lines.Add(line);
                                 if (!line.stops.Contains(t.init)) line.stops.Add(t.init);
                             }
 
                             if (t.end != null)
                             {
+                                if (!t.end.lines.Contains(line) || !line.stops.Contains(t.end)) RestClient.UpdateLineStop(activity, line, t.end).Wait();
                                 if (!t.end.lines.Contains(line)) t.end.lines.Add(line);
                                 if (!line.stops.Contains(t.end)) line.stops.Add(t.end);
                             }

@@ -1,26 +1,46 @@
 using Newtonsoft.Json;
 using Realms;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 
 namespace BusTrack.Data
 {
-    public class Line : RealmObject
+    public class Line : RealmObject, INotifyPropertyChanged
     {
-        [JsonProperty("id")]
-        [ObjectId]
-        public int id { get; set; }
+        public Line()
+        {
+            synced = false;
+            PropertyChanged += SetUnsynced;
+        }
 
-        [JsonProperty("name")]
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private void SetUnsynced(object sender, PropertyChangedEventArgs args)
+        {
+            if (synced && !args.PropertyName.Equals("synced")) synced = false;
+        }
+
+        [PrimaryKey]
+        public long id { get; set; }
+
         [Indexed]
         public string name { get; set; }
 
-        public RealmList<Bus> buses { get; }
+        [Ignored]
+        [JsonProperty("stops")]
+        public List<long> jstops { get; set; }
 
-        [JsonProperty("realmStops")]
+        [JsonIgnore]
+        public bool synced { get; set; }
+
+        [JsonIgnore]
         public RealmList<Stop> stops { get; }
 
-        [JsonProperty("stops")]
-        [Ignored]
-        public List<long> stopIds { get; set; }
+        public void GenerateID(Realm realm)
+        {
+            var query = realm.All<Line>().OrderByDescending(t => t.id);
+            id = query.Any() ? query.First().id + 1 : 1;
+        }
     }
 }
