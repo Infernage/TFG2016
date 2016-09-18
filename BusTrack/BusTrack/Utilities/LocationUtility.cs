@@ -10,7 +10,6 @@ namespace BusTrack.Utilities
     internal class LocationUtility : Java.Lang.Object, GoogleApiClient.IConnectionCallbacks, GoogleApiClient.IOnConnectionFailedListener, Android.Gms.Location.ILocationListener
     {
         private GoogleApiClient clientLocation;
-        private Location last;
 
         /// <summary>
         /// Retreives the last known location from GPS/network
@@ -70,7 +69,6 @@ namespace BusTrack.Utilities
 
         public void OnLocationChanged(Location location)
         {
-            last = location;
         }
     }
 }

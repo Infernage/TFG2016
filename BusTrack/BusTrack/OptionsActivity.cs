@@ -195,7 +195,7 @@ namespace BusTrack
                         if (dialog != null) dialog.Dismiss();
                         goto finish;
                     }
-                    if (RestClient.UploadTravel(this, travel, cts).Result)
+                    if (RestUtils.UploadTravel(this, travel, cts).Result)
                     {
                         realm.Write(() => travel.synced = true);
                         progress++;
@@ -297,9 +297,9 @@ namespace BusTrack
                 downPicker = dialog.FindViewById<NumberPicker>(Resource.Id.downPicker);
             Tuple<int, int> stored = Utils.GetNetworkDetection(context);
 
-            // Max value of 70, min value of 40
-            upPicker.MaxValue = downPicker.MaxValue = 70;
-            upPicker.MinValue = downPicker.MinValue = 40;
+            // Max value of 80, min value of 30
+            upPicker.MaxValue = downPicker.MaxValue = 80;
+            upPicker.MinValue = downPicker.MinValue = 30;
 
             upPicker.Value = stored.Item1;
             downPicker.Value = stored.Item2;

@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 
 namespace BusTrack.Utilities
 {
-    public class RestClient
+    public class RestUtils
     {
         private static readonly string WEB_URL = "http://192.168.1.140";
         private static volatile bool busy = false;

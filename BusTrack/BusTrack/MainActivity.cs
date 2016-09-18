@@ -30,7 +30,7 @@ namespace BusTrack
                 return;
             }
 #pragma warning disable CS4014
-            RestClient.Sync(this);
+            RestUtils.Sync(this);
 #pragma warning restore CS4014
 
             // Set our view from the "main" layout resource
@@ -86,10 +86,10 @@ namespace BusTrack
                 dialog.Show();
             };
 
-            int travelId = Intent.GetIntExtra("travel", -1);
+            long travelId = Intent.GetLongExtra("travel", -1);
             if (travelId != -1) // Activity created from a notification in a middle of a travel
             {
-                int[] lines = Intent.GetIntArrayExtra("lines");
+                long[] lines = Intent.GetLongArrayExtra("lines");
                 string tag = lines != null ? Utils.NAME_LCHOOSER : Utils.NAME_LCREATOR;
 
                 FragmentTransaction trans = FragmentManager.BeginTransaction();
@@ -103,7 +103,7 @@ namespace BusTrack
             WifiUtility.UpdateNetworks += UpdateUI;
 
             // We are logged in, start scanner
-            Intent service = new Intent(this, typeof(Scanner));
+            Intent service = new Intent(this, typeof(ScannerService));
             service.AddFlags(ActivityFlags.NewTask);
             StartService(service);
         }
@@ -128,7 +128,7 @@ namespace BusTrack
                 if (!stored.Contains(res.Ssid)) nets.Add(res.Ssid);
             }
 
-            adapter?.UpdateDetected(nets);
+            RunOnUiThread(() => adapter?.UpdateDetected(nets));
         }
     }
 
@@ -137,8 +137,8 @@ namespace BusTrack
     /// </summary>
     internal class LineChooserDialog : DialogFragment
     {
-        private int travel;
-        private int[] lines;
+        private long travel;
+        private long[] lines;
         private Activity activity;
 
         public LineChooserDialog()
@@ -146,7 +146,7 @@ namespace BusTrack
             travel = -1;
         }
 
-        public LineChooserDialog(Activity a, int travelId, int[] lines)
+        public LineChooserDialog(Activity a, long travelId, long[] lines)
         {
             activity = a;
             this.lines = lines;
@@ -205,19 +205,19 @@ namespace BusTrack
                                 t.bus.line = t.line;
                                 t.bus.lineId = t.line.id;
                                 t.bus.lastRefresh = DateTimeOffset.Now;
-                                if (RestClient.UpdateBus(activity, t.bus).Result) t.bus.synced = true;
+                                if (RestUtils.UpdateBus(activity, t.bus).Result) t.bus.synced = true;
                             }
 
                             if (t.init != null)
                             {
-                                if (!t.init.lines.Contains(line) || !line.stops.Contains(t.init)) RestClient.UpdateLineStop(activity, line, t.init).Wait();
+                                if (!t.init.lines.Contains(line) || !line.stops.Contains(t.init)) RestUtils.UpdateLineStop(activity, line, t.init).Wait();
                                 if (!t.init.lines.Contains(line)) t.init.lines.Add(line);
                                 if (!line.stops.Contains(t.init)) line.stops.Add(t.init);
                             }
 
                             if (t.end != null)
                             {
-                                if (!t.end.lines.Contains(line) || !line.stops.Contains(t.end)) RestClient.UpdateLineStop(activity, line, t.end).Wait();
+                                if (!t.end.lines.Contains(line) || !line.stops.Contains(t.end)) RestUtils.UpdateLineStop(activity, line, t.end).Wait();
                                 if (!t.end.lines.Contains(line)) t.end.lines.Add(line);
                                 if (!line.stops.Contains(t.end)) line.stops.Add(t.end);
                             }
@@ -248,7 +248,7 @@ namespace BusTrack
     /// </summary>
     internal class LineCreatorDialog : DialogFragment
     {
-        private int travel;
+        private long travel;
         private Activity activity;
 
         public LineCreatorDialog()
@@ -256,7 +256,7 @@ namespace BusTrack
             travel = -1;
         }
 
-        public LineCreatorDialog(Activity a, int travelId)
+        public LineCreatorDialog(Activity a, long travelId)
         {
             activity = a;
             travel = travelId;
@@ -296,7 +296,7 @@ namespace BusTrack
                         {
                             var lines = r.All<Line>().Where(l => l.id == lineNumber);
 
-                            Line line = lines.Any() ? lines.First() : await RestClient.CreateLine(activity, new Line { id = lineNumber, name = name.Text });
+                            Line line = lines.Any() ? lines.First() : await RestUtils.CreateLine(activity, new Line { id = lineNumber, name = name.Text });
                             if (!lines.Any())
                             {
                                 if (lineNumber != -1) line.id = lineNumber;
@@ -306,7 +306,7 @@ namespace BusTrack
                             if (!line.name.Equals(name.Text))
                             {
                                 line.name = name.Text;
-                                if (RestClient.UpdateLine(activity, line).Result) line.synced = true;
+                                if (RestUtils.UpdateLine(activity, line).Result) line.synced = true;
                             }
                             t.line = line;
 
@@ -315,19 +315,19 @@ namespace BusTrack
                                 t.bus.line = t.line;
                                 t.bus.lineId = t.line.id;
                                 t.bus.lastRefresh = DateTimeOffset.Now;
-                                if (RestClient.UpdateBus(activity, t.bus).Result) t.bus.synced = true;
+                                if (RestUtils.UpdateBus(activity, t.bus).Result) t.bus.synced = true;
                             }
 
                             if (t.init != null)
                             {
-                                if (!t.init.lines.Contains(line) || !line.stops.Contains(t.init)) RestClient.UpdateLineStop(activity, line, t.init).Wait();
+                                if (!t.init.lines.Contains(line) || !line.stops.Contains(t.init)) RestUtils.UpdateLineStop(activity, line, t.init).Wait();
                                 if (!t.init.lines.Contains(line)) t.init.lines.Add(line);
                                 if (!line.stops.Contains(t.init)) line.stops.Add(t.init);
                             }
 
                             if (t.end != null)
                             {
-                                if (!t.end.lines.Contains(line) || !line.stops.Contains(t.end)) RestClient.UpdateLineStop(activity, line, t.end).Wait();
+                                if (!t.end.lines.Contains(line) || !line.stops.Contains(t.end)) RestUtils.UpdateLineStop(activity, line, t.end).Wait();
                                 if (!t.end.lines.Contains(line)) t.end.lines.Add(line);
                                 if (!line.stops.Contains(t.end)) line.stops.Add(t.end);
                             }
@@ -377,7 +377,6 @@ namespace BusTrack
 
         public override View GetView(int position, View convertView, ViewGroup parent)
         {
-            // TODO: Find a way to sort items correctly
             var view = convertView;
             Button button;
             if (view == null)

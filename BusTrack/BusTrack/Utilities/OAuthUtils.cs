@@ -39,7 +39,7 @@ namespace BusTrack.Utilities
                 new KeyValuePair<string, string>("username", user),
                 new KeyValuePair<string, string>("password", PerformClientHash(user, pass))
             });
-            HttpResponseMessage response = await RestClient.CallWebAPI("/oauth/generate", ct, content: content);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/oauth/generate", ct, content: content);
             if (response.IsSuccessStatusCode)
             {
                 string token = await response.Content.ReadAsStringAsync();
@@ -91,7 +91,7 @@ namespace BusTrack.Utilities
                 edit.Remove(PREF_USER_EMAIL);
                 edit.Remove(PREF_USER_NAME);
                 edit.Commit();
-                context.StopService(new Intent(context, typeof(Scanner)));
+                context.StopService(new Intent(context, typeof(ScannerService)));
             }
         }
 
@@ -109,7 +109,7 @@ namespace BusTrack.Utilities
             if (prefs.GetLong(PREF_VALID_TOKEN, 0) > Utils.ToUnixEpochDate(DateTime.Now)) return true;
 
             // 2-> Check if user token is valid with web server
-            if ((await RestClient.CallWebAPI("/oauth/check", CancellationToken.None, context, checkLogin: false)).IsSuccessStatusCode) return true;
+            if ((await RestUtils.CallWebAPI("/oauth/check", CancellationToken.None, context, checkLogin: false)).IsSuccessStatusCode) return true;
 
             // 3-> User token expired, refresh it!
             if (await Refresh(context)) return true;
@@ -136,7 +136,7 @@ namespace BusTrack.Utilities
                 new KeyValuePair<string, string>("email", email),
                 new KeyValuePair<string, string>("password", PerformClientHash(email, pass))
             });
-            HttpResponseMessage response = await RestClient.CallWebAPI("/oauth/register", CancellationToken.None, content: content);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/oauth/register", CancellationToken.None, content: content);
             return new Tuple<bool, string>(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         }
 
@@ -155,7 +155,7 @@ namespace BusTrack.Utilities
             {
                 new KeyValuePair<string, string>("token", JObject.Parse(token)["refresh_token"].ToString())
             });
-            HttpResponseMessage response = await RestClient.CallWebAPI("/oauth/refresh", CancellationToken.None, content: content, checkLogin: false);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/oauth/refresh", CancellationToken.None, content: content, checkLogin: false);
             if (response.IsSuccessStatusCode)
             {
                 token = await response.Content.ReadAsStringAsync();

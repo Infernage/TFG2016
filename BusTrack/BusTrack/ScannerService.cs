@@ -17,7 +17,7 @@ using System.Threading;
 namespace BusTrack
 {
     [Service]
-    internal class Scanner : Service
+    internal class ScannerService : Service
     {
         private readonly string currentAp = "currentAp";
         private readonly string currentTravel = "currentTravel";
@@ -96,7 +96,7 @@ namespace BusTrack
                                             bus.line = current.line;
                                             bus.lineId = current.line.id;
                                             bus.lastRefresh = DateTime.Now;
-                                            if (RestClient.UpdateBus(this, bus).Result) bus.synced = true;
+                                            if (RestUtils.UpdateBus(this, bus).Result) bus.synced = true;
                                         }
                                         current.time = DateTimeOffset.Now.Subtract(current.date).Seconds;
                                         current.distance = distance;
@@ -105,7 +105,7 @@ namespace BusTrack
                                         // If we know the line, check if it's necessary to update line and stop
                                         if (current.line != null && !nearest.lines.Contains(current.line))
                                         {
-                                            RestClient.UpdateLineStop(this, current.line, nearest).Wait();
+                                            RestUtils.UpdateLineStop(this, current.line, nearest).Wait();
                                             if (!nearest.lines.Contains(current.line)) nearest.lines.Add(current.line);
                                             if (!current.line.stops.Contains(nearest)) current.line.stops.Add(nearest);
                                         }
@@ -115,7 +115,7 @@ namespace BusTrack
                                     if (prefs.GetBoolean("autoSync" + prefs.GetLong(Utils.PREF_USER_ID, -1).ToString(), true))
                                     {
                                         // If upload was OK, mark as synced
-                                        if (RestClient.UploadTravel(this, current).Result) realm.Write(() => current.synced = true);
+                                        if (RestUtils.UploadTravel(this, current).Result) realm.Write(() => current.synced = true);
                                     }
 
                                     // Reset variables
@@ -130,7 +130,7 @@ namespace BusTrack
 
                                     // Sync DB
 #pragma warning disable CS4014
-                                    RestClient.Sync(this);
+                                    RestUtils.Sync(this);
 #pragma warning restore CS4014
                                 }
                             }
@@ -188,7 +188,7 @@ namespace BusTrack
             if (nearestStops.Count == 0)
             {
                 // No stored stop! Create new one
-                nearest = RestClient.CreateStop(this, current).Result;
+                nearest = RestUtils.CreateStop(this, current).Result;
                 realm.Write(() =>
                 {
                     if (!nearest.synced) nearest.GenerateID(realm);
@@ -308,7 +308,7 @@ namespace BusTrack
 
                     // Create/Get bus
                     var buses = realm.All<Bus>().Where(b => b.mac == busAp);
-                    Bus bus = buses.Any() ? buses.First() : RestClient.CreateBus(this, new Bus { lastRefresh = DateTime.Now, mac = busAp }).Result;
+                    Bus bus = buses.Any() ? buses.First() : RestUtils.CreateBus(this, new Bus { lastRefresh = DateTime.Now, mac = busAp }).Result;
 
                     // Create travel object
                     realm.Write(() =>
@@ -329,6 +329,7 @@ namespace BusTrack
                     NotificationManager notificator = GetSystemService(NotificationService) as NotificationManager;
                     Notification.Builder builder = new Notification.Builder(Application.Context);
                     builder.SetSmallIcon(Android.Resource.Drawable.IcDialogInfo);
+                    builder.SetOngoing(true); // Avoid user to cancel notification
 
                     builder.SetDefaults(NotificationDefaults.Sound | NotificationDefaults.Vibrate);
 
@@ -368,6 +369,7 @@ namespace BusTrack
                     {
                         builder.SetContentText("Viajando en la línea " + lines.First().id.ToString() + ". Pulsa para cambiar.");
                         builder.SetContentTitle("Viaje detectado");
+                        builder.SetAutoCancel(false);
 
                         Notification notif = builder.Build();
                         notificator.Notify("correctTravel", (int)current.id, notif);
@@ -380,7 +382,7 @@ namespace BusTrack
                                 bus.line = current.line;
                                 bus.lineId = current.line.id;
                                 bus.lastRefresh = DateTimeOffset.Now;
-                                if (RestClient.UpdateBus(this, bus).Result) bus.synced = true;
+                                if (RestUtils.UpdateBus(this, bus).Result) bus.synced = true;
                             }
                         });
                     }

@@ -150,7 +150,7 @@ namespace BusTrackWeb
                 if (context.Bus.Any() || context.Line.Any() || context.Stop.Any() || context.Travel.Any() || context.User.Any()) return; // Already seeded
 
                 string json;
-                using (StreamReader sr = File.OpenText(Path.Combine(env.ContentRootPath, "Models", "emt.json")))
+                using (StreamReader sr = File.OpenText(ResourceManager.GetResourceLocation("Models.emt.json")))
                 {
                     json = sr.ReadToEnd();
                 }

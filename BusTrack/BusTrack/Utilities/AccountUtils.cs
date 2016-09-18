@@ -28,7 +28,7 @@ namespace BusTrack.Utilities
             {
                 new KeyValuePair<string, string>("id", id.ToString())
             });
-            HttpResponseMessage response = await RestClient.CallWebAPI("/account/getstatistics", ct, context, content);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/account/getstatistics", ct, context, content);
             return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync() : string.Empty;
         }
 
@@ -49,7 +49,7 @@ namespace BusTrack.Utilities
                 new KeyValuePair<string, string>("id", id.ToString()),
                 new KeyValuePair<string, string>("sign", OAuthUtils.PerformClientHash(json["email"].ToString(), sign))
             });
-            HttpResponseMessage response = await RestClient.CallWebAPI("/account/delete", CancellationToken.None, context, content);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/account/delete", CancellationToken.None, context, content);
             if (response.IsSuccessStatusCode)
             {
                 using (Realm realm = Realm.GetInstance(Utils.GetDB()))
@@ -81,7 +81,7 @@ namespace BusTrack.Utilities
                 new KeyValuePair<string, string>("sign", sign)
             });
 
-            HttpResponseMessage response = await RestClient.CallWebAPI("/account/change" + type.ToString("g").ToLower(), CancellationToken.None, context, content);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/account/change" + type.ToString("g").ToLower(), CancellationToken.None, context, content);
             return response.IsSuccessStatusCode;
         }
 
@@ -98,7 +98,7 @@ namespace BusTrack.Utilities
             {
                 new KeyValuePair<string, string>("email", email)
             });
-            HttpResponseMessage response = await RestClient.CallWebAPI("/account/forgotpassword", CancellationToken.None, content: content);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/account/forgotpassword", CancellationToken.None, content: content);
             return new Tuple<bool, string>(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         }
     }

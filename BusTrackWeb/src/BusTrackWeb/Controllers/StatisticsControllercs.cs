@@ -69,7 +69,8 @@ namespace BusTrackWeb.Controllers
                 // Average travel duration
                 using (var context = new TFGContext())
                 {
-                    return context.Travel.Select(t => t.time).Average();
+                    var query = context.Travel.Select(t => t.time);
+                    return query.Any() ? query.Average() : 0D;
                 }
             });
             Task<int> longestDurationTask = Task.Factory.StartNew(() =>
@@ -77,7 +78,8 @@ namespace BusTrackWeb.Controllers
                 // Longest travel duration
                 using (var context = new TFGContext())
                 {
-                    return context.Travel.Select(t => t.time).Max();
+                    var query = context.Travel.Select(t => t.time);
+                    return query.Any() ? query.Max() : 0;
                 }
             });
             Task<double> pollutionBusTask = Task.Factory.StartNew(() =>
@@ -86,7 +88,8 @@ namespace BusTrackWeb.Controllers
                 using (var context = new TFGContext())
                 {
                     double sub = Statistics.POLLUTION_CAR - Statistics.POLLUTION_BUS;
-                    return context.Travel.Where(t => t.distance != 0).Select(t => t.distance).Aggregate(0D, (a, b) => a + (b * sub));
+                    var query = context.Travel.Where(t => t.distance != 0).Select(t => t.distance);
+                    return query.Any() ? query.Aggregate(0D, (a, b) => a + (b * sub)) : 0D;
                 }
             });
             Task<double> pollutionEBusTask = Task.Factory.StartNew(() =>
@@ -95,7 +98,8 @@ namespace BusTrackWeb.Controllers
                 using (var context = new TFGContext())
                 {
                     double sub = Statistics.POLLUTION_CAR - Statistics.POLLUTION_BUS_E;
-                    return context.Travel.Where(t => t.distance != 0).Select(t => t.distance).Aggregate(0D, (a, b) => a + (b * sub));
+                    var query = context.Travel.Where(t => t.distance != 0).Select(t => t.distance);
+                    return query.Any() ? query.Aggregate(0D, (a, b) => a + (b * sub)) : 0D;
                 }
             });
 

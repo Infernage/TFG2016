@@ -54,10 +54,10 @@ namespace BusTrack.Utilities
         /// - Item2: The network intensity used to detect the finish of a trip.</returns>
         public static Tuple<int, int> GetNetworkDetection(Context context)
         {
-            if (!OAuthUtils.UserLogged(context)) return new Tuple<int, int>(40, 70);
+            if (!OAuthUtils.UserLogged(context)) return new Tuple<int, int>(50, 70);
 
             ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
-            return new Tuple<int, int>(Math.Abs(prefs.GetInt("upNetInt" + prefs.GetLong(PREF_USER_ID, -1).ToString(), 40)),
+            return new Tuple<int, int>(Math.Abs(prefs.GetInt("upNetInt" + prefs.GetLong(PREF_USER_ID, -1).ToString(), -50)),
                 Math.Abs(prefs.GetInt("downNetInt" + prefs.GetLong(PREF_USER_ID, -1).ToString(), -70)));
         }
 
@@ -75,8 +75,8 @@ namespace BusTrack.Utilities
             ISharedPreferences prefs = context.GetSharedPreferences(NAME_PREF, FileCreationMode.Private);
             ISharedPreferencesEditor edit = prefs.Edit();
             int up = tuple.Item1 * -1, down = tuple.Item2 * -1;
-            edit.PutInt("upNetInt" + prefs.GetLong(PREF_USER_ID, -1).ToString(), up >= -70 && up <= -40 ? up : -40);
-            edit.PutInt("downNetInt" + prefs.GetLong(PREF_USER_ID, -1).ToString(), down >= -70 && down <= -40 ? down : -70);
+            edit.PutInt("upNetInt" + prefs.GetLong(PREF_USER_ID, -1).ToString(), up >= -80 && up <= -30 ? up : -50);
+            edit.PutInt("downNetInt" + prefs.GetLong(PREF_USER_ID, -1).ToString(), down >= -80 && down <= -30 ? down : -70);
             edit.Commit();
         }
 
@@ -133,7 +133,7 @@ namespace BusTrack.Utilities
             if (intent.Action != null && intent.Action == Intent.ActionBootCompleted && OAuthUtils.UserLogged(context))
             {
                 // Start service
-                Intent service = new Intent(context, typeof(Scanner));
+                Intent service = new Intent(context, typeof(ScannerService));
                 service.AddFlags(ActivityFlags.NewTask);
                 service.AddFlags(ActivityFlags.FromBackground);
                 context.ApplicationContext.StartService(service);
