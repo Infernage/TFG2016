@@ -136,7 +136,7 @@
     <Compile Include="Utilities\WifiUtility.cs" />
   </ItemGroup>
   <ItemGroup>
-    <AndroidAsset Include="Assets\emt.json" />
+    <AndroidAsset Include="Assets\nginx.cert" />
     <None Include="GettingStarted.Xamarin" />
     <None Include="packages.config" />
     <None Include="Resources\AboutResources.txt" />

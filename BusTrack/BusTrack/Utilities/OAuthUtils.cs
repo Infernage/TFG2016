@@ -39,7 +39,7 @@ namespace BusTrack.Utilities
                 new KeyValuePair<string, string>("username", user),
                 new KeyValuePair<string, string>("password", PerformClientHash(user, pass))
             });
-            HttpResponseMessage response = await RestUtils.CallWebAPI("/oauth/generate", ct, content: content);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/oauth/generate", ct, context, content: content);
             if (response.IsSuccessStatusCode)
             {
                 string token = await response.Content.ReadAsStringAsync();
@@ -109,7 +109,7 @@ namespace BusTrack.Utilities
             if (prefs.GetLong(PREF_VALID_TOKEN, 0) > Utils.ToUnixEpochDate(DateTime.Now)) return true;
 
             // 2-> Check if user token is valid with web server
-            if ((await RestUtils.CallWebAPI("/oauth/check", CancellationToken.None, context, checkLogin: false)).IsSuccessStatusCode) return true;
+            if ((await RestUtils.CallWebAPI("/oauth/check", CancellationToken.None, context, checkLogin: false, bearer: true)).IsSuccessStatusCode) return true;
 
             // 3-> User token expired, refresh it!
             if (await Refresh(context)) return true;
@@ -122,13 +122,14 @@ namespace BusTrack.Utilities
         /// <summary>
         /// Registers a new user into the system.
         /// </summary>
+        /// <param name="contextm">Android context.</param>
         /// <param name="name">The user name.</param>
         /// <param name="email">The user email.</param>
         /// <param name="pass">The user password.</param>
         /// <returns>A tuple with:
         /// - Item1: Flag indicating if the registration has been successful.
         /// - Item2: The response content (Only for errors).</returns>
-        internal async static Task<Tuple<bool, string>> Register(string name, string email, string pass)
+        internal async static Task<Tuple<bool, string>> Register(Context context, string name, string email, string pass)
         {
             var content = new FormUrlEncodedContent(new[]
             {
@@ -136,7 +137,7 @@ namespace BusTrack.Utilities
                 new KeyValuePair<string, string>("email", email),
                 new KeyValuePair<string, string>("password", PerformClientHash(email, pass))
             });
-            HttpResponseMessage response = await RestUtils.CallWebAPI("/oauth/register", CancellationToken.None, content: content);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/oauth/register", CancellationToken.None, context, content: content);
             return new Tuple<bool, string>(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         }
 
@@ -155,7 +156,7 @@ namespace BusTrack.Utilities
             {
                 new KeyValuePair<string, string>("token", JObject.Parse(token)["refresh_token"].ToString())
             });
-            HttpResponseMessage response = await RestUtils.CallWebAPI("/oauth/refresh", CancellationToken.None, content: content, checkLogin: false);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/oauth/refresh", CancellationToken.None, context, content: content, checkLogin: false);
             if (response.IsSuccessStatusCode)
             {
                 token = await response.Content.ReadAsStringAsync();

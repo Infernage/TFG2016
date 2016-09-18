@@ -10,13 +10,10 @@ namespace BusTrackWeb
         public static void Main(string[] args)
         {
             var host = new WebHostBuilder()
-                .UseKestrel(options =>
-                {
-                    options.UseHttps(new X509Certificate2(ResourceManager.GetResourceLocation("cert.pfx")));
-                })
+                .UseKestrel()
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseIISIntegration()
-                .UseStartup<Startup>().UseUrls("https://localhost", "https://192.168.1.140", "http://localhost", "http://192.168.1.140")
+                .UseStartup<Startup>().UseUrls("http://localhost:10400")
                 .Build();
 
             host.Run();

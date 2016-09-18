@@ -216,7 +216,7 @@ namespace BusTrack
                 }
             }
 
-        finish:
+            finish:
             syncing = false;
         }
     }

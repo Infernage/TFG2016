@@ -2,6 +2,7 @@ using Android.Content;
 using Android.Locations;
 using Android.Util;
 using BusTrack.Data;
+using Java.Security.Cert;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Realms;
@@ -13,12 +14,13 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Xamarin.Android.Net;
 
 namespace BusTrack.Utilities
 {
     public class RestUtils
     {
-        private static readonly string WEB_URL = "http://192.168.1.140";
+        private static readonly string WEB_URL = "https://bustrack.undo.it";
         private static volatile bool busy = false;
 
         /// <summary>
@@ -31,7 +33,7 @@ namespace BusTrack.Utilities
             if (busy) return;
             busy = true;
 
-            HttpResponseMessage response = await CallWebAPI("/backend/all", CancellationToken.None, context);
+            HttpResponseMessage response = await CallWebAPI("/backend/all", CancellationToken.None, context, bearer: true);
             if (response.IsSuccessStatusCode)
             {
                 var root = JObject.Parse(await response.Content.ReadAsStringAsync());
@@ -184,7 +186,7 @@ namespace BusTrack.Utilities
         {
             var content = new StringContent(JsonConvert.SerializeObject(bus), Encoding.UTF8, "application/json");
 
-            HttpResponseMessage response = await CallWebAPI("/backend/buses", CancellationToken.None, context, content, timeout: 10);
+            HttpResponseMessage response = await CallWebAPI("/backend/buses", CancellationToken.None, context, content, timeout: 10, bearer: true);
             if (response.IsSuccessStatusCode)
             {
                 bus = JsonConvert.DeserializeObject<Bus>(await response.Content.ReadAsStringAsync());
@@ -203,7 +205,7 @@ namespace BusTrack.Utilities
         {
             var content = new StringContent(JsonConvert.SerializeObject(bus), Encoding.UTF8, "application/json");
 
-            HttpResponseMessage response = await CallWebAPI($"/backend/buses/{bus.mac}", CancellationToken.None, context, content, timeout: 10, update: true);
+            HttpResponseMessage response = await CallWebAPI($"/backend/buses/{bus.mac}", CancellationToken.None, context, content, timeout: 10, update: true, bearer: true);
             return response.IsSuccessStatusCode;
         }
 
@@ -217,7 +219,7 @@ namespace BusTrack.Utilities
         {
             var content = new StringContent(JsonConvert.SerializeObject(line), Encoding.UTF8, "application/json");
 
-            HttpResponseMessage response = await CallWebAPI("/backend/lines", CancellationToken.None, context, content, timeout: 10);
+            HttpResponseMessage response = await CallWebAPI("/backend/lines", CancellationToken.None, context, content, timeout: 10, bearer: true);
             if (response.IsSuccessStatusCode)
             {
                 line = JsonConvert.DeserializeObject<Line>(await response.Content.ReadAsStringAsync());
@@ -236,7 +238,7 @@ namespace BusTrack.Utilities
         {
             var content = new StringContent(JsonConvert.SerializeObject(line), Encoding.UTF8, "application/json");
 
-            HttpResponseMessage response = await CallWebAPI($"/backend/lines/{line.id}", CancellationToken.None, context, content, timeout: 10, update: true);
+            HttpResponseMessage response = await CallWebAPI($"/backend/lines/{line.id}", CancellationToken.None, context, content, timeout: 10, update: true, bearer: true);
             return response.IsSuccessStatusCode;
         }
 
@@ -254,7 +256,7 @@ namespace BusTrack.Utilities
             };
             var content = new StringContent(JsonConvert.SerializeObject(stop), Encoding.UTF8, "application/json");
 
-            HttpResponseMessage response = await CallWebAPI("/backend/stops", CancellationToken.None, context, content, timeout: 10);
+            HttpResponseMessage response = await CallWebAPI("/backend/stops", CancellationToken.None, context, content, timeout: 10, bearer: true);
             if (response.IsSuccessStatusCode)
             {
                 stop = JsonConvert.DeserializeObject<Stop>(await response.Content.ReadAsStringAsync());
@@ -279,7 +281,7 @@ namespace BusTrack.Utilities
             };
             var content = new StringContent(JsonConvert.SerializeObject(json), Encoding.UTF8, "application/json");
 
-            HttpResponseMessage response = await CallWebAPI("/backend/linestops", CancellationToken.None, context, content, timeout: 10);
+            HttpResponseMessage response = await CallWebAPI("/backend/linestops", CancellationToken.None, context, content, timeout: 10, bearer: true);
             return response.IsSuccessStatusCode;
         }
 
@@ -294,7 +296,7 @@ namespace BusTrack.Utilities
         {
             var content = new StringContent(JsonConvert.SerializeObject(travel), Encoding.UTF8, "application/json");
 
-            HttpResponseMessage response = await CallWebAPI("/account/addtravel", cts?.Token ?? CancellationToken.None, context, content, timeout: 10);
+            HttpResponseMessage response = await CallWebAPI("/account/addtravel", cts?.Token ?? CancellationToken.None, context, content, timeout: 10, bearer: true);
             return response.IsSuccessStatusCode;
         }
 
@@ -303,22 +305,37 @@ namespace BusTrack.Utilities
         /// </summary>
         /// <param name="urlPath">The url path (excluding base url).</param>
         /// <param name="token">The cancellation token used for cancel the call.</param>
-        /// <param name="context">Android context (default to null). If it's provided, it will be used to retrieve the user token.</param>
+        /// <param name="context">Android context.</param>
         /// <param name="content">The request content (default to null). If it's not provided, a GET request will be used instead.</param>
         /// <param name="checkLogin">A flag indicating if before requesting the data, it should check whether OAuth tokens are valids or not.</param>
         /// <param name="timeout">The timeout in seconds.</param>
         /// <param name="update">A flag indicating if the request content is a new entity or not.</param>
+        /// <param name="bearer">If it's true, it will authenticate the user token.</param>
         /// <returns>A HttpResponseMessage object.</returns>
-        internal async static Task<HttpResponseMessage> CallWebAPI(string urlPath, CancellationToken token, Context context = null, HttpContent content = null,
-            bool checkLogin = true, int timeout = 30, bool update = false)
+        internal async static Task<HttpResponseMessage> CallWebAPI(string urlPath, CancellationToken token, Context context, HttpContent content = null,
+            bool checkLogin = true, int timeout = 30, bool update = false, bool bearer = false)
         {
-            using (var client = new HttpClient())
+            //Since we are using a self-signed certificate, we have to tell android that web server certificate is valid
+            Certificate cert;
+            CertificateFactory cf = CertificateFactory.GetInstance("X.509"); // Web server certificate uses X.509 format
+            using (var stream = context.Assets.Open("nginx.cert")) // Read certificate from assets
+            {
+                cert = cf.GenerateCertificate(stream);
+            }
+
+            // Add the certificate to the TrustedCerts list
+            var handler = new AndroidClientHandler();
+            List<Certificate> certs = new List<Certificate>();
+            certs.Add(cert);
+            handler.TrustedCerts = certs;
+
+            using (var client = new HttpClient(handler))
             {
                 // Setup http client
                 client.MaxResponseContentBufferSize = 256000;
                 client.Timeout = TimeSpan.FromSeconds(timeout);
 
-                if (context != null)
+                if (bearer)
                 {
                     if (checkLogin && !await OAuthUtils.CheckLogin(context))
                     {

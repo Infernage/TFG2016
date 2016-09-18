@@ -28,7 +28,7 @@ namespace BusTrack.Utilities
             {
                 new KeyValuePair<string, string>("id", id.ToString())
             });
-            HttpResponseMessage response = await RestUtils.CallWebAPI("/account/getstatistics", ct, context, content);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/account/getstatistics", ct, context, content, bearer: true);
             return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync() : string.Empty;
         }
 
@@ -49,7 +49,7 @@ namespace BusTrack.Utilities
                 new KeyValuePair<string, string>("id", id.ToString()),
                 new KeyValuePair<string, string>("sign", OAuthUtils.PerformClientHash(json["email"].ToString(), sign))
             });
-            HttpResponseMessage response = await RestUtils.CallWebAPI("/account/delete", CancellationToken.None, context, content);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/account/delete", CancellationToken.None, context, content, bearer: true);
             if (response.IsSuccessStatusCode)
             {
                 using (Realm realm = Realm.GetInstance(Utils.GetDB()))
@@ -81,24 +81,25 @@ namespace BusTrack.Utilities
                 new KeyValuePair<string, string>("sign", sign)
             });
 
-            HttpResponseMessage response = await RestUtils.CallWebAPI("/account/change" + type.ToString("g").ToLower(), CancellationToken.None, context, content);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/account/change" + type.ToString("g").ToLower(), CancellationToken.None, context, content, bearer: true);
             return response.IsSuccessStatusCode;
         }
 
         /// <summary>
         /// Performs the forgot password action.
         /// </summary>
+        /// <param name="context">Android context.</param>
         /// <param name="email">The user email.</param>
         /// <returns>A tuple with:
         /// - Item1: Flag indicating if the action has been successful.
         /// - Item2: The response content (Only for errors).</returns>
-        internal async static Task<Tuple<bool, string>> Forgot(string email)
+        internal async static Task<Tuple<bool, string>> Forgot(Context context, string email)
         {
             var content = new FormUrlEncodedContent(new[]
             {
                 new KeyValuePair<string, string>("email", email)
             });
-            HttpResponseMessage response = await RestUtils.CallWebAPI("/account/forgotpassword", CancellationToken.None, content: content);
+            HttpResponseMessage response = await RestUtils.CallWebAPI("/account/forgotpassword", CancellationToken.None, context, content: content);
             return new Tuple<bool, string>(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         }
     }
