@@ -45,7 +45,7 @@ namespace BusTrackWeb.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public async Task<ActionResult> Confirm([FromQuery] long userId, [FromQuery] string code, [FromQuery] long exp)
+        public ActionResult Confirm([FromQuery] long userId, [FromQuery] string code, [FromQuery] long exp)
         {
             if (!ModelState.IsValid) return BadRequest("Validation error");
             DateTime validTo = OAuthTokenProvider.FromUnixEpochDate(exp);
@@ -70,9 +70,9 @@ namespace BusTrackWeb.Controllers
                 u.confirmed = true;
                 context.SaveChanges();
 
-                // Generate OAuth token
-                var json = JsonConvert.SerializeObject(await OAuthTokenProvider.GenerateToken(u.email, u.hash.Split(':')[1], _options, true), _serializer);
-                return new OkObjectResult(json);
+                ViewData["title"] = "Confirmación correcta";
+                ViewData["msg"] = "Tu cuenta ha sido confirmada. Ya puedes utilizar la aplicación móvil.";
+                return View("Confirm");
             }
         }
 
@@ -204,7 +204,10 @@ namespace BusTrackWeb.Controllers
                     u.resetPass = false;
                     context.SaveChanges();
 
-                    return Ok();
+                    ViewData.Clear();
+                    ViewData["title"] = "Contraseña reseteada";
+                    ViewData["msg"] = "Tu contraseña ha sido reseteada correctamente.";
+                    return View("Confirm");
                 }
                 return BadRequest("Validation error");
             }

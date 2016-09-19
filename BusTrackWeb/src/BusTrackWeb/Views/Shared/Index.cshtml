@@ -1,0 +1,70 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit http://go.microsoft.com/fwlink/?LinkID=397860
+*@
+<head>
+    <link rel="stylesheet" type="text/css" href="~/styles.css" />
+    <script type="text/javascript" src="~/fusioncharts/fusioncharts.js"></script>
+    <script type="text/javascript" src="~/fusioncharts/themes/fusioncharts.theme.fint.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            $.getJSON("getpiedata", function (data, status) {
+                if (status == "success") {
+                    var chart = new FusionCharts({
+                        "type": "doughnut2d",
+                        "renderAt": "piechart",
+                        "width": 1000,
+                        "height": 700,
+                        "dataFormat": "json",
+                        "dataSource": {
+                            "chart": {
+                                "caption": "Viajes por línea",
+                                "startingangle": "310",
+                                "decimals": "0",
+                                "showLegend": "1",
+                                "defaultcenterlabel": "Viajes totales con línea",
+                                "centerlabel": "Número de viajes: $value",
+                                "theme": "fint"
+                            },
+                            "data": data
+                        }
+                    });
+                    chart.render();
+                } else {
+                    $("#piechart").hide();
+                }
+            });
+            $(".flip").click(function (e) {
+                e.preventDefault();
+                if ($("#piechart").is(":visible")) $(".flip").html($(".flip").html().replace("Ocultar", "Mostrar"));
+                else $(".flip").html($(".flip").html().replace("Mostrar", "Ocultar"));
+                $("#piechart").slideToggle();
+                $("html, body").animate({ scrollTop: $('#piechart').offset().top + $('#piechart').height() }, 1000);
+            });
+        });
+    </script>
+</head>
+
+<body>
+    <ul>
+        <li><h1><a href="">BusTrack</a></h1></li>
+    </ul>
+
+    <div style="width: 700px; margin-left: auto; margin-right: auto; overflow-x: auto;">
+        <table style="width: 100%;">
+            <tr>
+                <th><h3 style="display: inline;">Nombre</h3></th>
+                <th><h3 style="display: inline;">Valor</h3></th>
+            </tr>
+            @foreach(var entry in ViewData)
+            {
+                <tr>
+                    <td>@entry.Key</td>
+                    <td>@entry.Value</td>
+                </tr>
+            }
+        </table>
+        <div class="flip"><a href="javascript:void()" style="color: white; text-decoration: none; display: block; padding-top: 30px; padding-bottom: 30px;">Mostrar gráfico de viajes por línea</a></div>
+    </div>
+    <div id="piechart" style="display: none; width: 1000px; margin-left: auto; margin-right: auto;"></div>
+</body>

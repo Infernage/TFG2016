@@ -15,6 +15,68 @@ namespace BusTrackWeb
     {
         public static readonly float POLLUTION_CAR = 119F, POLLUTION_BUS = 104F, POLLUTION_BUS_E = 18.6F;
 
+        #region mapReduceTravelsDayWeek
+
+        private ConcurrentBag<DayOfWeek> travelWBag = null;
+        private BlockingCollection<DayOfWeek> travelWChunks = null;
+        private ConcurrentDictionary<DayOfWeek, int> travelWStore = null;
+
+        /// <summary>
+        /// MapReduce method for get the most popular day of the week.
+        /// </summary>
+        /// <returns>The most popular day of the wek.</returns>
+        internal int MapReduceTravelsDayWeek()
+        {
+            if (travelWChunks == null || travelWChunks.IsAddingCompleted)
+            {
+                travelWBag = new ConcurrentBag<DayOfWeek>();
+                travelWChunks = new BlockingCollection<DayOfWeek>(travelWBag);
+                travelWStore = new ConcurrentDictionary<DayOfWeek, int>();
+            }
+
+            ThreadPool.QueueUserWorkItem((o) =>
+            {
+                MapWTravels();
+            });
+
+            ReduceWTravels();
+
+            return travelWStore.Count > 0 ? (int) travelWStore.Aggregate((a, b) => a.Value >= b.Value ? a : b).Key : -1;
+        }
+
+        /// <summary>
+        /// Mapping function. Fills the blocking collection with days of the week.
+        /// </summary>
+        private void MapWTravels()
+        {
+            Parallel.ForEach(ProduceTravelsIDs(-1), id =>
+            {
+                using (var context = new TFGContext())
+                {
+                    var query = context.Travel.Where(t => t.id == id);
+                    if (!query.Any()) return;
+
+                    Travel travel = query.First();
+                    travelWChunks.Add(travel.date.DayOfWeek);
+                }
+            });
+
+            travelWChunks.CompleteAdding();
+        }
+
+        /// <summary>
+        /// Reducing function. Fills the dictionary with dayOfWeek-numTimes pairs.
+        /// </summary>
+        private void ReduceWTravels()
+        {
+            Parallel.ForEach(travelWChunks.GetConsumingEnumerable(), day =>
+            {
+                travelWStore.AddOrUpdate(day, 1, (key, value) => Interlocked.Increment(ref value));
+            });
+        }
+
+        #endregion
+
         #region mapReduceTravelsByDay
 
         private ConcurrentBag<DateTimeOffset> travelBag = null;

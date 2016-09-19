@@ -3,21 +3,22 @@
     "windowsAuthentication": false,
     "anonymousAuthentication": true,
     "iisExpress": {
-      "applicationUrl": "https://localhost:44364/",
-      "sslPort": 44364
+      "applicationUrl": "http://localhost:10500/",
+      "sslPort": 0
     }
   },
   "profiles": {
     "IIS Express": {
       "commandName": "IISExpress",
-      "launchUrl": "api/values",
+      "launchBrowser": true,
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
     "BusTrackWeb": {
       "commandName": "Project",
-      "launchUrl": "https://localhost/api/values",
+      "launchBrowser": true,
+      "launchUrl": "http://localhost:10400",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
