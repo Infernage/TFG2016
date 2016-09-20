@@ -324,7 +324,7 @@ namespace BusTrack.Utilities
             }
 
             // Add the certificate to the TrustedCerts list
-            var handler = new AndroidClientHandler();
+            var handler = new CustomAndroidClientHandler();
             List<Certificate> certs = new List<Certificate>();
             certs.Add(cert);
             handler.TrustedCerts = certs;
@@ -364,12 +364,16 @@ namespace BusTrack.Utilities
                 catch (OperationCanceledException e)
                 {
                     Log.Error(Utils.NAME_PREF, Java.Lang.Throwable.FromException(e), "CallWebAPI cancelled!");
-                    return new HttpResponseMessage(HttpStatusCode.RequestTimeout);
+                    HttpResponseMessage msg = new HttpResponseMessage(HttpStatusCode.RequestTimeout);
+                    msg.Content = new StringContent(e.Message);
+                    return msg;
                 }
                 catch (Exception e)
                 {
                     Log.Error(Utils.NAME_PREF, Java.Lang.Throwable.FromException(e), "CallWebAPI failed!");
-                    return new HttpResponseMessage(HttpStatusCode.Conflict);
+                    HttpResponseMessage msg = new HttpResponseMessage(HttpStatusCode.Conflict);
+                    msg.Content = new StringContent(e.Message);
+                    return msg;
                 }
             }
         }

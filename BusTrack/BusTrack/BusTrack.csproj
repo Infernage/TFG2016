@@ -121,6 +121,7 @@
     <Compile Include="LoginActivity.cs" />
     <Compile Include="MainActivity.cs" />
     <Compile Include="MapActivity.cs" />
+    <Compile Include="Utilities\CustomAndroidHandler.cs" />
     <Compile Include="Utilities\MenuInitializer.cs" />
     <Compile Include="OptionsActivity.cs" />
     <Compile Include="Resources\Resource.Designer.cs" />

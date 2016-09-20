@@ -39,7 +39,6 @@ namespace BusTrack
                 };
                 dialog.Show();
 
-                loginB.Enabled = false;
                 string pswd = passF.Text;
                 passF.Text = "";
                 string email = emailF.Text;
@@ -52,7 +51,6 @@ namespace BusTrack
                 }
                 else
                 {
-                    loginB.Enabled = true;
                     dialog.Dismiss();
                     Toast.MakeText(this, cts.IsCancellationRequested ? "Cancelado" : "Identificación fallida", ToastLength.Long).Show();
                 }
