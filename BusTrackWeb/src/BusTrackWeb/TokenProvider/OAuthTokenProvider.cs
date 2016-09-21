@@ -205,7 +205,7 @@ namespace BusTrackWeb.TokenProvider
                 }));
             }
 
-        invalid:
+            invalid:
             // Invalid credentials or inexistent account
             return Task.FromResult<ClaimsIdentity>(null);
         }

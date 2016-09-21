@@ -41,7 +41,7 @@ namespace BusTrackWeb
 
             ReduceWTravels();
 
-            return travelWStore.Count > 0 ? (int) travelWStore.Aggregate((a, b) => a.Value >= b.Value ? a : b).Key : -1;
+            return travelWStore.Count > 0 ? (int)travelWStore.Aggregate((a, b) => a.Value >= b.Value ? a : b).Key : -1;
         }
 
         /// <summary>
@@ -75,7 +75,7 @@ namespace BusTrackWeb
             });
         }
 
-        #endregion
+        #endregion mapReduceTravelsDayWeek
 
         #region mapReduceTravelsByDay
 

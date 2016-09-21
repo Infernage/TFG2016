@@ -2,14 +2,42 @@
     For more information on enabling MVC for empty projects, visit http://go.microsoft.com/fwlink/?LinkID=397860
 *@
 <head>
-    <link rel="stylesheet" type="text/css" href="~/styles.css" />
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="~/css/bootstrap.css" />
+    <link rel="stylesheet" type="text/css" href="~/css/bootstrap-theme.css" />
 </head>
-<body>
-    <ul>
-        <li><h1><a href="">BusTrack</a></h1></li>
-    </ul>
-    <div class="window">
-        <div class="titlebar">@ViewData["title"]</div>
-        <div class="content">@ViewData["msg"]</div>
+<body style="background: url(/background.jpg);">
+    <nav class="navbar navbar-default">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="navbar-collapse">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="/">BusTrack</a>
+            </div>
+            <div class="navbar-collapse collapse">
+                <ul class="nav navbar-nav">
+                    <li><a href="/">Inicio</a></li>
+                    <li><a href="https://github.com/Infernage/TFG2016">Fuente del proyecto</a></li>
+                    <li><a href="https://github.com/Infernage/TFG2016/wiki">Información</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <div class="container">
+        @if (ViewData.ContainsKey("type") && ViewData["type"].Equals("error"))
+        {
+            @:<div class="panel panel-danger">
+        }
+        else
+        {
+            @:<div class="panel panel-success">
+        }
+            <div class="panel-heading"><h3 class="panel-title">@ViewData["title"]</h3></div>
+            <div class="panel-body">@ViewData["msg"]</div>
+        </div>
     </div>
 </body>

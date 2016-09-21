@@ -47,6 +47,7 @@ namespace BusTrackWeb.Models
                 position = p;
             }
         }
+
         [NotMapped]
         public ICollection<long> lines // Used when is serialized
         {

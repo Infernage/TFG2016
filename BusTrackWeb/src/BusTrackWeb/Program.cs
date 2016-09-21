@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using System.IO;
-using System.Security.Cryptography.X509Certificates;
 
 namespace BusTrackWeb
 {

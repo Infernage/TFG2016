@@ -48,7 +48,7 @@ namespace BusTrackWeb.Controllers
             JArray array = new JArray();
             using (var context = new TFGContext())
             {
-                foreach (var line in context.Line.Include(l => l.Travels))
+                foreach (var line in context.Line.Include(l => l.Travels).Where(l => l.Travels.Count > 0))
                 {
                     JObject obj = new JObject();
                     obj["label"] = line.id.ToString() + " - " + line.name;
@@ -177,7 +177,7 @@ namespace BusTrackWeb.Controllers
                 ViewData["AverageBusRefresh"] = averageBusRefreshTask.Result;
                 ViewData["LongesDistance"] = longestDistanceTask.Result;
                 ViewData["AverageDistance"] = averageDistanceTask.Result;
-                ViewData["MostPopularDay"] = mostPopularWDayTask.Result != -1 ? CultureInfo.InvariantCulture.DateTimeFormat.GetDayName((DayOfWeek) Enum.ToObject(typeof(DayOfWeek), mostPopularWDayTask.Result)) : "N/A";
+                ViewData["MostPopularDay"] = mostPopularWDayTask.Result != -1 ? CultureInfo.InvariantCulture.DateTimeFormat.GetDayName((DayOfWeek)Enum.ToObject(typeof(DayOfWeek), mostPopularWDayTask.Result)) : "N/A";
             }
             else
             {

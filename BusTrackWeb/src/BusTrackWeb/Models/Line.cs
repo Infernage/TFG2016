@@ -18,6 +18,7 @@ namespace BusTrackWeb.Models
         public long id { get; set; }
 
         public string name { get; set; }
+
         [NotMapped]
         public ICollection<long> stops // Used when is serialized
         {
