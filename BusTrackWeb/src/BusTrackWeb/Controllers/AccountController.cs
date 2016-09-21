@@ -109,9 +109,9 @@ namespace BusTrackWeb.Controllers
                 var msg = new MimeMessage();
                 msg.From.Add(new MailboxAddress("BusTrack", "BusTrack@gmail.com"));
                 msg.To.Add(new MailboxAddress(user.name, email));
-                msg.Subject = "Reset BusTrack password";
+                msg.Subject = "Reset de contraseña BusTrack solicitada";
                 var html = new BodyBuilder();
-                html.HtmlBody = $"You can reset your password throughout this link: <a href='{url}'>link</a><br/>If you didn't ask for a reset, ignore this message.";
+                html.HtmlBody = $"Puedes resetear tu contraseña a través de este link:<br/><a href='{url}'>{url}</a><br/>Si no has pedido el reseteo de tu contraseña, simplemente ignora este mensaje.";
                 msg.Body = html.ToMessageBody();
 
                 using (var client = new SmtpClient())

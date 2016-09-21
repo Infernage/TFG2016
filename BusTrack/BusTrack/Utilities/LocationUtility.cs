@@ -53,18 +53,12 @@ namespace BusTrack.Utilities
 
         public void OnConnectionFailed(ConnectionResult result)
         {
-            if (result.ErrorCode == ConnectionResult.ServiceDisabled || result.ErrorCode == ConnectionResult.ServiceInvalid || result.ErrorCode == ConnectionResult.ServiceMissing)
-            {
-                // TODO: Notify user to install/activate Google Play services
-            }
+            Connect();
         }
 
         public void OnConnectionSuspended(int cause)
         {
-            if (cause == GoogleApiClient.ConnectionCallbacks.CauseServiceDisconnected)
-            {
-                // TODO: Notify user to re-enable GPS
-            }
+            Connect();
         }
 
         public void OnLocationChanged(Location location)

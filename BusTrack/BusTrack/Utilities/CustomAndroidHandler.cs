@@ -1,3 +1,8 @@
+using Android.Runtime;
+using Java.Net;
+using Java.Security;
+using Java.Security.Cert;
+using Javax.Net.Ssl;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,24 +11,18 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-
-using Android.Runtime;
-using Java.Net;
-using Java.Security;
-using Java.Security.Cert;
-using Javax.Net.Ssl;
 using Xamarin.Android.Net;
-using System.Security.Cryptography;
 
 // Workaround for Xamarin bug
 namespace BusTrack.Utilities
 {
     internal class CustomAndroidClientHandler : HttpClientHandler
     {
-        sealed class RequestRedirectionState
+        private sealed class RequestRedirectionState
         {
             public Uri NewUrl;
             public int RedirectCounter;
@@ -32,11 +31,11 @@ namespace BusTrack.Utilities
 
         internal const string LOG_APP = "monodroid-net";
 
-        const string GZIP_ENCODING = "gzip";
-        const string DEFLATE_ENCODING = "deflate";
-        const string IDENTITY_ENCODING = "identity";
+        private const string GZIP_ENCODING = "gzip";
+        private const string DEFLATE_ENCODING = "deflate";
+        private const string IDENTITY_ENCODING = "identity";
 
-        static readonly HashSet<string> known_content_headers = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+        private static readonly HashSet<string> known_content_headers = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
             "Allow",
             "Content-Disposition",
             "Content-Encoding",
@@ -50,18 +49,18 @@ namespace BusTrack.Utilities
             "Last-Modified"
         };
 
-        static readonly List<IAndroidAuthenticationModule> authModules = new List<IAndroidAuthenticationModule> {
+        private static readonly List<IAndroidAuthenticationModule> authModules = new List<IAndroidAuthenticationModule> {
             new AuthModuleBasic (),
             new AuthModuleDigest ()
         };
 
-        bool disposed;
+        private bool disposed;
 
         // Now all hail Java developers! Get this... HttpURLClient defaults to accepting AND
         // uncompressing the gzip content encoding UNLESS you set the Accept-Encoding header to ANY
         // value. So if we set it to 'gzip' below we WILL get gzipped stream but HttpURLClient will NOT
         // uncompress it any longer, doh. And they don't support 'deflate' so we need to handle it ourselves.
-        bool decompress_here;
+        private bool decompress_here;
 
         /// <summary>
         /// <para>
@@ -82,7 +81,7 @@ namespace BusTrack.Utilities
         /// If the website requires authentication, this property will contain data about each scheme supported
         /// by the server after the response. Note that unauthorized request will return a valid response - you
         /// need to check the status code and and (re)configure AndroidClientHandler instance accordingly by providing
-        /// both the credentials and the authentication scheme by setting the <see cref="PreAuthenticationData"/> 
+        /// both the credentials and the authentication scheme by setting the <see cref="PreAuthenticationData"/>
         /// property. If AndroidClientHandler is not able to detect the kind of authentication scheme it will store an
         /// instance of <see cref="AuthenticationData"/> with its <see cref="AuthenticationData.Scheme"/> property
         /// set to <c>AuthenticationScheme.Unsupported</c> and the application will be responsible for providing an
@@ -110,12 +109,12 @@ namespace BusTrack.Utilities
         /// <summary>
         /// <para>
         /// If the request is to the server protected with a self-signed (or otherwise untrusted) SSL certificate, the request will
-        /// fail security chain verification unless the application provides either the CA certificate of the entity which issued the 
+        /// fail security chain verification unless the application provides either the CA certificate of the entity which issued the
         /// server's certificate or, alternatively, provides the server public key. Whichever the case, the certificate(s) must be stored
         /// in this property in order for AndroidClientHandler to configure the request to accept the server certificate.</para>
-        /// <para>AndroidClientHandler uses a custom <see cref="KeyStore"/> and <see cref="TrustManagerFactory"/> to configure the connection. 
+        /// <para>AndroidClientHandler uses a custom <see cref="KeyStore"/> and <see cref="TrustManagerFactory"/> to configure the connection.
         /// If, however, the application requires finer control over the SSL configuration (e.g. it implements its own TrustManager) then
-        /// it should leave this property empty and instead derive a custom class from AndroidClientHandler and override, as needed, the 
+        /// it should leave this property empty and instead derive a custom class from AndroidClientHandler and override, as needed, the
         /// <see cref="ConfigureTrustManagerFactory"/>, <see cref="ConfigureKeyManagerFactory"/> and <see cref="ConfigureKeyStore"/> methods
         /// instead</para>
         /// </summary>
@@ -172,7 +171,7 @@ namespace BusTrack.Utilities
             }
         }
 
-        Task<HttpResponseMessage> ProcessRequest(HttpRequestMessage request, URL javaUrl, HttpURLConnection httpConnection, CancellationToken cancellationToken, RequestRedirectionState redirectState)
+        private Task<HttpResponseMessage> ProcessRequest(HttpRequestMessage request, URL javaUrl, HttpURLConnection httpConnection, CancellationToken cancellationToken, RequestRedirectionState redirectState)
         {
             cancellationToken.ThrowIfCancellationRequested();
             httpConnection.InstanceFollowRedirects = false; // We handle it ourselves
@@ -182,7 +181,7 @@ namespace BusTrack.Utilities
             return DoProcessRequest(request, javaUrl, httpConnection, cancellationToken, redirectState);
         }
 
-        async Task<HttpResponseMessage> DoProcessRequest(HttpRequestMessage request, URL javaUrl, HttpURLConnection httpConnection, CancellationToken cancellationToken, RequestRedirectionState redirectState)
+        private async Task<HttpResponseMessage> DoProcessRequest(HttpRequestMessage request, URL javaUrl, HttpURLConnection httpConnection, CancellationToken cancellationToken, RequestRedirectionState redirectState)
         {
             try
             {
@@ -289,7 +288,7 @@ namespace BusTrack.Utilities
             return ret;
         }
 
-        HttpContent GetErrorContent(HttpURLConnection httpConnection, HttpContent fallbackContent)
+        private HttpContent GetErrorContent(HttpURLConnection httpConnection, HttpContent fallbackContent)
         {
             var contentStream = httpConnection.ErrorStream;
 
@@ -301,7 +300,7 @@ namespace BusTrack.Utilities
             return fallbackContent;
         }
 
-        HttpContent GetContent(URLConnection httpConnection, Stream contentStream)
+        private HttpContent GetContent(URLConnection httpConnection, Stream contentStream)
         {
             Stream inputStream = new BufferedStream(contentStream);
             if (decompress_here)
@@ -318,7 +317,7 @@ namespace BusTrack.Utilities
             return new StreamContent(inputStream);
         }
 
-        bool HandleRedirect(HttpStatusCode redirectCode, HttpURLConnection httpConnection, RequestRedirectionState redirectState, out bool disposeRet)
+        private bool HandleRedirect(HttpStatusCode redirectCode, HttpURLConnection httpConnection, RequestRedirectionState redirectState, out bool disposeRet)
         {
             if (!AllowAutoRedirect)
             {
@@ -363,12 +362,12 @@ namespace BusTrack.Utilities
             return true;
         }
 
-        bool IsErrorStatusCode(HttpStatusCode statusCode)
+        private bool IsErrorStatusCode(HttpStatusCode statusCode)
         {
             return (int)statusCode >= 400 && (int)statusCode <= 599;
         }
 
-        void CollectAuthInfo(HttpHeaderValueCollection<AuthenticationHeaderValue> headers)
+        private void CollectAuthInfo(HttpHeaderValueCollection<AuthenticationHeaderValue> headers)
         {
             var authData = new List<AuthenticationData>(headers.Count);
 
@@ -386,7 +385,7 @@ namespace BusTrack.Utilities
             RequestedAuthentication = authData.AsReadOnly();
         }
 
-        AuthenticationScheme GetAuthScheme(string scheme)
+        private AuthenticationScheme GetAuthScheme(string scheme)
         {
             if (String.Compare("basic", scheme, StringComparison.OrdinalIgnoreCase) == 0)
                 return AuthenticationScheme.Basic;
@@ -396,7 +395,7 @@ namespace BusTrack.Utilities
             return AuthenticationScheme.Unsupported;
         }
 
-        void CopyHeaders(HttpURLConnection httpConnection, HttpResponseMessage response)
+        private void CopyHeaders(HttpURLConnection httpConnection, HttpResponseMessage response)
         {
             IDictionary<string, IList<string>> headers = httpConnection.HeaderFields;
             foreach (string key in headers.Keys)
@@ -423,7 +422,7 @@ namespace BusTrack.Utilities
         /// <summary>
         /// Configure the <see cref="HttpURLConnection"/> before the request is sent. This method is meant to be overriden
         /// by applications which need to perform some extra configuration steps on the connection. It is called with all
-        /// the request headers set, pre-authentication performed (if applicable) but before the request body is set 
+        /// the request headers set, pre-authentication performed (if applicable) but before the request body is set
         /// (e.g. for POST requests). The default implementation in AndroidClientHandler does nothing.
         /// </summary>
         /// <param name="request">Request data</param>
@@ -466,9 +465,9 @@ namespace BusTrack.Utilities
         /// <summary>
         /// Create and configure an instance of <see cref="TrustManagerFactory"/>. The <paramref name="keyStore"/> parameter is set to the
         /// return value of the <see cref="ConfigureKeyStore"/> method, so it might be null if the application overrode the method and provided
-        /// no key store. It will not be <c>null</c> when the default implementation is used. The application can return <c>null</c> from this 
+        /// no key store. It will not be <c>null</c> when the default implementation is used. The application can return <c>null</c> from this
         /// method in which case AndroidClientHandler will create its own instance of the trust manager factory provided that the <see cref="TrustCerts"/>
-        /// list contains at least one valid certificate. If there are no valid certificates and this method returns <c>null</c>, no custom 
+        /// list contains at least one valid certificate. If there are no valid certificates and this method returns <c>null</c>, no custom
         /// trust manager will be created since that would make all the HTTPS requests fail.
         /// </summary>
         /// <returns>The trust manager factory.</returns>
@@ -480,7 +479,7 @@ namespace BusTrack.Utilities
             return null;
         }
 
-        void AppendEncoding(string encoding, ref List<string> list)
+        private void AppendEncoding(string encoding, ref List<string> list)
         {
             if (list == null)
                 list = new List<string>();
@@ -489,7 +488,7 @@ namespace BusTrack.Utilities
             list.Add(encoding);
         }
 
-        async Task<HttpURLConnection> SetupRequestInternal(HttpRequestMessage request, URLConnection conn)
+        private async Task<HttpURLConnection> SetupRequestInternal(HttpRequestMessage request, URLConnection conn)
         {
             if (conn == null)
                 throw new ArgumentNullException(nameof(conn));
@@ -544,7 +543,7 @@ namespace BusTrack.Utilities
             return httpConnection;
         }
 
-        void SetupSSL(HttpsURLConnection httpsConnection)
+        private void SetupSSL(HttpsURLConnection httpsConnection)
         {
             if (httpsConnection == null)
                 return;
@@ -583,7 +582,7 @@ namespace BusTrack.Utilities
             httpsConnection.SSLSocketFactory = context.SocketFactory;
         }
 
-        void HandlePreAuthentication(HttpURLConnection httpConnection)
+        private void HandlePreAuthentication(HttpURLConnection httpConnection)
         {
             AuthenticationData data = PreAuthenticationData;
             if (!PreAuthenticate || data == null)
@@ -610,7 +609,7 @@ namespace BusTrack.Utilities
             httpConnection.SetRequestProperty(data.UseProxyAuthentication ? "Proxy-Authorization" : "Authorization", authorization.Message);
         }
 
-        void AddHeaders(HttpURLConnection conn, HttpHeaders headers)
+        private void AddHeaders(HttpURLConnection conn, HttpHeaders headers)
         {
             if (headers == null)
                 return;
@@ -621,7 +620,7 @@ namespace BusTrack.Utilities
             }
         }
 
-        void SetupRequestBody(HttpURLConnection httpConnection, HttpRequestMessage request)
+        private void SetupRequestBody(HttpURLConnection httpConnection, HttpRequestMessage request)
         {
             if (request.Content == null)
             {
@@ -645,7 +644,7 @@ namespace BusTrack.Utilities
         }
     }
 
-    sealed class AuthModuleBasic : IAndroidAuthenticationModule
+    internal sealed class AuthModuleBasic : IAndroidAuthenticationModule
     {
         public AuthenticationScheme Scheme { get; } = AuthenticationScheme.Basic;
         public string AuthenticationType { get; } = "Basic";
@@ -668,7 +667,7 @@ namespace BusTrack.Utilities
             return InternalAuthenticate(request, credentials);
         }
 
-        Authorization InternalAuthenticate(HttpURLConnection request, ICredentials credentials)
+        private Authorization InternalAuthenticate(HttpURLConnection request, ICredentials credentials)
         {
             if (request == null || credentials == null)
                 return null;
@@ -692,18 +691,18 @@ namespace BusTrack.Utilities
         }
     }
 
-    sealed class AuthModuleDigest : IAndroidAuthenticationModule
+    internal sealed class AuthModuleDigest : IAndroidAuthenticationModule
     {
-        const string LOG_APP = CustomAndroidClientHandler.LOG_APP + "-digest-auth";
+        private const string LOG_APP = CustomAndroidClientHandler.LOG_APP + "-digest-auth";
 
-        static readonly object cache_lock = new object();
-        static readonly Dictionary<int, AuthDigestSession> cache = new Dictionary<int, AuthDigestSession>();
+        private static readonly object cache_lock = new object();
+        private static readonly Dictionary<int, AuthDigestSession> cache = new Dictionary<int, AuthDigestSession>();
 
         public AuthenticationScheme Scheme { get; } = AuthenticationScheme.Digest;
         public string AuthenticationType { get; } = "Digest";
         public bool CanPreAuthenticate { get; } = true;
 
-        static Dictionary<int, AuthDigestSession> Cache
+        private static Dictionary<int, AuthDigestSession> Cache
         {
             get
             {
@@ -716,7 +715,7 @@ namespace BusTrack.Utilities
             }
         }
 
-        static void CheckExpired(int count)
+        private static void CheckExpired(int count)
         {
             if (count < 10)
                 return;
@@ -800,15 +799,15 @@ namespace BusTrack.Utilities
         }
     }
 
-    sealed class AuthDigestSession
+    internal sealed class AuthDigestSession
     {
-        static readonly RandomNumberGenerator rng = RandomNumberGenerator.Create();
+        private static readonly RandomNumberGenerator rng = RandomNumberGenerator.Create();
 
-        DateTime lastUse = DateTime.UtcNow;
-        int _nc = 1;
-        HashAlgorithm hash;
-        AuthDigestHeaderParser parser;
-        string _cnonce;
+        private DateTime lastUse = DateTime.UtcNow;
+        private int _nc = 1;
+        private HashAlgorithm hash;
+        private AuthDigestHeaderParser parser;
+        private string _cnonce;
 
         public string Algorithm
         {
@@ -870,7 +869,7 @@ namespace BusTrack.Utilities
             return true;
         }
 
-        string HashToHexString(string toBeHashed)
+        private string HashToHexString(string toBeHashed)
         {
             if (hash == null)
                 return null;
@@ -884,7 +883,7 @@ namespace BusTrack.Utilities
             return sb.ToString();
         }
 
-        string HA1(string username, string password)
+        private string HA1(string username, string password)
         {
             string ha1 = $"{username}:{Realm}:{password}";
             if (String.Compare(Algorithm, "md5-sess", StringComparison.OrdinalIgnoreCase) == 0)
@@ -892,7 +891,7 @@ namespace BusTrack.Utilities
             return HashToHexString(ha1);
         }
 
-        string HA2(HttpURLConnection webRequest)
+        private string HA2(HttpURLConnection webRequest)
         {
             var uri = new Uri(webRequest.URL.ToString());
             string ha2 = $"{webRequest.RequestMethod}:{uri.PathAndQuery}";
@@ -904,7 +903,7 @@ namespace BusTrack.Utilities
             return HashToHexString(ha2);
         }
 
-        string Response(string username, string password, HttpURLConnection webRequest)
+        private string Response(string username, string password, HttpURLConnection webRequest)
         {
             string response = $"{HA1(username, password)}:{Nonce}:";
             if (QOP != null)
@@ -972,15 +971,15 @@ namespace BusTrack.Utilities
         }
     }
 
-    sealed class AuthDigestHeaderParser
+    internal sealed class AuthDigestHeaderParser
     {
-        const string REALM = "realm";
-        const string OPAQUE = "opaque";
-        const string NONCE = "nonce";
-        const string ALGORITHM = "algorithm";
-        const string QOP_ = "qop";
+        private const string REALM = "realm";
+        private const string OPAQUE = "opaque";
+        private const string NONCE = "nonce";
+        private const string ALGORITHM = "algorithm";
+        private const string QOP_ = "qop";
 
-        static readonly Dictionary<string, string> keywords = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly Dictionary<string, string> keywords = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             [REALM] = null,
             [OPAQUE] = null,
@@ -989,9 +988,9 @@ namespace BusTrack.Utilities
             [QOP_] = null
         };
 
-        string header;
-        int length;
-        int pos;
+        private string header;
+        private int length;
+        private int pos;
 
         public string Realm
         {
@@ -1055,7 +1054,7 @@ namespace BusTrack.Utilities
             return true;
         }
 
-        void SkipWhitespace()
+        private void SkipWhitespace()
         {
             char c = ' ';
             while (pos < length && (c == ' ' || c == '\t' || c == '\r' || c == '\n'))
@@ -1065,7 +1064,7 @@ namespace BusTrack.Utilities
             pos--;
         }
 
-        string GetKey()
+        private string GetKey()
         {
             SkipWhitespace();
             int begin = pos;
@@ -1077,7 +1076,7 @@ namespace BusTrack.Utilities
             return header.Substring(begin, pos - begin).Trim().ToLowerInvariant();
         }
 
-        bool GetKeywordAndValue(out string key, out string value)
+        private bool GetKeywordAndValue(out string key, out string value)
         {
             key = null;
             value = null;
@@ -1129,8 +1128,8 @@ namespace BusTrack.Utilities
 
     internal class AndroidHttpResponseMessage : HttpResponseMessage
     {
-        URL javaUrl;
-        HttpURLConnection httpConnection;
+        private URL javaUrl;
+        private HttpURLConnection httpConnection;
 
         /// <summary>
         /// Set to the same value as <see cref="CustomAndroidClientHandler.RequestedAuthentication"/>.
@@ -1176,7 +1175,7 @@ namespace BusTrack.Utilities
     {
         /// <summary>
         /// Gets the authentication scheme. If instance of AuthenticationData comes from the <see cref="CustomAndroidClientHandler.RequestedAuthentication"/>
-        /// collection it will have this property set to the type of authentication as requested by the server, or to <c>AuthenticationScheme.Unsupported</c>/>. 
+        /// collection it will have this property set to the type of authentication as requested by the server, or to <c>AuthenticationScheme.Unsupported</c>/>.
         /// In the latter case the application is required to provide the authentication module in <see cref="AuthModule"/>.
         /// </summary>
         /// <value>The authentication scheme.</value>
@@ -1190,7 +1189,7 @@ namespace BusTrack.Utilities
         public string Challenge { get; internal set; }
 
         /// <summary>
-        /// Indicates whether authentication performed using data in this instance should be done for the end server or a proxy. If instance of 
+        /// Indicates whether authentication performed using data in this instance should be done for the end server or a proxy. If instance of
         /// AuthenticationData comes from the <see cref="CustomAndroidClientHandler.RequestedAuthentication"/> collection it will have this property set to
         /// <c>true</c> if authentication request came from a proxy, <c>false</c> otherwise.
         /// </summary>

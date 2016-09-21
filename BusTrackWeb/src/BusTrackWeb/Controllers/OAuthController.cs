@@ -99,9 +99,9 @@ namespace BusTrackWeb.Controllers
                 var msg = new MimeMessage();
                 msg.From.Add(new MailboxAddress("BusTrack", "BusTrack@gmail.com"));
                 msg.To.Add(new MailboxAddress(name, email));
-                msg.Subject = "Confirm BusTrack account";
+                msg.Subject = "Confirmación de cuenta BusTrack";
                 var html = new BodyBuilder();
-                html.HtmlBody = $"Please, confirm your account by clicking this link: <a href='{url}'>link</a>";
+                html.HtmlBody = $"Por favor, confirma tu cuenta haciendo click en el enlace:<br/><a href='{url}'>{url}</a>";
                 msg.Body = html.ToMessageBody();
 
                 using (var client = new SmtpClient())

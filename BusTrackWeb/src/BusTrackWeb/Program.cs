@@ -12,7 +12,8 @@ namespace BusTrackWeb
                 .UseKestrel()
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseIISIntegration()
-                .UseStartup<Startup>().UseUrls("http://localhost:10400")
+                .UseStartup<Startup>()
+                .UseUrls("http://localhost:10400")
                 .Build();
 
             host.Run();
