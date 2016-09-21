@@ -1,6 +1,5 @@
 ﻿using BusTrackWeb.Models;
 using BusTrackWeb.TokenProvider;
-using GeoCoordinatePortable;
 using MailKit.Net.Smtp;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cryptography.KeyDerivation;
@@ -11,9 +10,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using MimeKit;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -138,15 +135,15 @@ namespace BusTrackWeb.Controllers
         public ActionResult ResetPassword([FromQuery] long userId, [FromQuery] string code, [FromQuery] long exp,
             [FromQuery] string sign)
         {
-            if (!ModelState.IsValid) return BadRequest("Validation error");
+            if (!ModelState.IsValid) return GenValidation();
             DateTime validTo = OAuthTokenProvider.FromUnixEpochDate(exp);
-            if (validTo - DateTime.UtcNow <= TimeSpan.Zero) return BadRequest("Code expired");
+            if (validTo - DateTime.UtcNow <= TimeSpan.Zero) return GenExpired();
 
             using (var context = new TFGContext())
             {
                 // Check if user exists
                 var query = from us in context.User where userId == us.id select us;
-                if (!query.Any()) return BadRequest("Code expired");
+                if (!query.Any()) return GenExpired();
 
                 // Check if code is correct
                 User u = query.First();
@@ -155,7 +152,7 @@ namespace BusTrackWeb.Controllers
                 {
                     nCode = Base64UrlEncoder.Encode(hmac.ComputeHash(Encoding.UTF8.GetBytes(string.Concat(u.id, u.email, u.name, exp))));
                 }
-                if (!nCode.Equals(code) || !u.resetPass) return BadRequest("Code expired");
+                if (!nCode.Equals(code) || !u.resetPass) return GenExpired();
 
                 // Set view data
                 ViewData["userId"] = userId;
@@ -171,15 +168,15 @@ namespace BusTrackWeb.Controllers
         public ActionResult ResetPassword([FromForm] long userId, [FromForm] string code, [FromForm] long exp, [FromForm] string password, [FromForm] string confPassword,
             [FromForm] string hash, [FromForm] string sign)
         {
-            if (!ModelState.IsValid) return BadRequest("Validation error");
+            if (!ModelState.IsValid) return GenValidation();
             DateTime validTo = OAuthTokenProvider.FromUnixEpochDate(exp);
-            if (validTo - DateTime.UtcNow <= TimeSpan.Zero) return BadRequest("Code expired");
+            if (validTo - DateTime.UtcNow <= TimeSpan.Zero) return GenExpired();
 
             using (var context = new TFGContext())
             {
                 // Check if user exists
                 var query = from us in context.User where userId == us.id select us;
-                if (!query.Any()) return BadRequest("Code expired");
+                if (!query.Any()) return GenExpired();
 
                 // Check if code is correct
                 User u = query.First();
@@ -188,7 +185,7 @@ namespace BusTrackWeb.Controllers
                 {
                     nCode = Base64UrlEncoder.Encode(hmac.ComputeHash(Encoding.UTF8.GetBytes(string.Concat(u.id, u.email, u.name, exp))));
                 }
-                if (!nCode.Equals(code) || !u.resetPass) return BadRequest("Code expired");
+                if (!nCode.Equals(code) || !u.resetPass) return GenExpired();
 
                 // Access from view
                 if (password != null && confPassword != null && password.Equals(confPassword))
@@ -209,8 +206,23 @@ namespace BusTrackWeb.Controllers
                     ViewData["msg"] = "Tu contraseña ha sido reseteada correctamente.";
                     return View("Confirm");
                 }
-                return BadRequest("Validation error");
+                return GenValidation();
             }
+        }
+
+        private ActionResult GenExpired()
+        {
+            ViewData["type"] = "error";
+            ViewData["title"] = "Código expirado";
+            ViewData["msg"] = "El link que intentas acceder ha caducado.";
+            return View("Confirm");
+        }
+
+        private ActionResult GenValidation()
+        {
+            ViewData["type"] = "error";
+            ViewData["title"] = "Error de validación";
+            return View("Confirm");
         }
 
         #endregion Anonymous access
