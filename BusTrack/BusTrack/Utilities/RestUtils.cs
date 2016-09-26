@@ -26,153 +26,157 @@ namespace BusTrack.Utilities
         /// Synchronizes local DB with remote one and flushes any unsynced data.
         /// </summary>
         /// <param name="context">Android context.</param>
-        public static async Task Sync(Context context)
+        public static void Sync(Context context)
         {
             // Avoid more than 1 synchronization
             if (busy) return;
             busy = true;
 
-            HttpResponseMessage response = await CallWebAPI("/backend/all", CancellationToken.None, context, bearer: true);
-            if (response.IsSuccessStatusCode)
+            Thread thread = new Thread(() =>
             {
-                var root = JObject.Parse(await response.Content.ReadAsStringAsync());
-                var buses = root["buses"];
-                var stops = root["stops"];
-                var lines = root["lines"];
-
-                using (Realm realm = Realm.GetInstance(Utils.GetDB()))
+                HttpResponseMessage response = CallWebAPI("/backend/all", CancellationToken.None, context, bearer: true).Result;
+                if (response.IsSuccessStatusCode)
                 {
-                    // Apply external data
-                    realm.Write(() =>
+                    var root = JObject.Parse(response.Content.ReadAsStringAsync().Result);
+                    var buses = root["buses"];
+                    var stops = root["stops"];
+                    var lines = root["lines"];
+
+                    using (Realm realm = Realm.GetInstance(Utils.GetDB()))
                     {
-                        Dictionary<string, Bus> sBuses = new Dictionary<string, Bus>();
-                        Dictionary<long, Line> sLines = new Dictionary<long, Line>();
-
-                        // Sync buses
-                        foreach (JToken btoken in buses)
+                        // Apply external data
+                        realm.Write(() =>
                         {
-                            string mac = btoken[nameof(Bus.mac)].ToString();
-                            var bquery = realm.All<Bus>().Where(b => b.mac == mac);
-                            Bus bus = bquery.Any() ? bquery.First() : realm.CreateObject<Bus>();
-                            if (bus.lastRefresh == null || bus.lastRefresh <= btoken[nameof(Bus.lastRefresh)].ToObject<DateTime>()) bus.lastRefresh = btoken[nameof(Bus.lastRefresh)].ToObject<DateTime>();
-                            if (!bquery.Any()) bus.mac = mac;
-                            sBuses.Add(bus.mac, bus);
-                        }
+                            Dictionary<string, Bus> sBuses = new Dictionary<string, Bus>();
+                            Dictionary<long, Line> sLines = new Dictionary<long, Line>();
 
-                        // Sync lines
-                        foreach (JToken ltoken in lines)
-                        {
-                            long lid = ltoken[nameof(Line.id)].ToObject<long>();
-                            var lquery = realm.All<Line>().Where(l => l.id == lid);
-                            Line line = lquery.Any() ? lquery.First() : realm.CreateObject<Line>();
-                            if (line.name == null || !line.name.Equals(ltoken[nameof(Line.name)].ToString())) line.name = ltoken[nameof(Line.name)].ToString();
-                            if (!lquery.Any()) line.id = lid;
-
-                            foreach (JToken id in ltoken["buses"])
+                            // Sync buses
+                            foreach (JToken btoken in buses)
                             {
-                                Bus bus = sBuses[id.ToString()];
-                                bus.line = line;
+                                string mac = btoken[nameof(Bus.mac)].ToString();
+                                var bquery = realm.All<Bus>().Where(b => b.mac == mac);
+                                Bus bus = bquery.Any() ? bquery.First() : realm.CreateObject<Bus>();
+                                if (bus.lastRefresh == null || bus.lastRefresh <= btoken[nameof(Bus.lastRefresh)].ToObject<DateTime>()) bus.lastRefresh = btoken[nameof(Bus.lastRefresh)].ToObject<DateTime>();
+                                if (!bquery.Any()) bus.mac = mac;
+                                sBuses.Add(bus.mac, bus);
                             }
-                            sLines.Add(line.id, line);
-                        }
 
-                        // Sync stops
-                        foreach (JToken stoken in stops)
-                        {
-                            long sid = stoken[nameof(Stop.id)].ToObject<long>();
-                            var squery = realm.All<Stop>().Where(s => s.id == sid);
-                            Stop stop = squery.Any() ? squery.First() : realm.CreateObject<Stop>();
-                            Location loc = new Location("");
-                            loc.Latitude = stoken["latitude"].ToObject<double>();
-                            loc.Longitude = stoken["longitude"].ToObject<double>();
-                            if (stop.location.Latitude != loc.Latitude || stop.location.Longitude != loc.Longitude) stop.location = loc;
-                            if (!squery.Any()) stop.id = sid;
-
-                            foreach (JToken id in stoken["lines"])
+                            // Sync lines
+                            foreach (JToken ltoken in lines)
                             {
-                                Line line = sLines[id.ToObject<long>()];
-                                if (!stop.lines.Contains(line)) stop.lines.Add(line);
-                                if (!line.stops.Contains(stop)) line.stops.Add(stop);
-                            }
-                            stop.synced = true;
-                        }
+                                long lid = ltoken[nameof(Line.id)].ToObject<long>();
+                                var lquery = realm.All<Line>().Where(l => l.id == lid);
+                                Line line = lquery.Any() ? lquery.First() : realm.CreateObject<Line>();
+                                if (line.name == null || !line.name.Equals(ltoken[nameof(Line.name)].ToString())) line.name = ltoken[nameof(Line.name)].ToString();
+                                if (!lquery.Any()) line.id = lid;
 
-                        // Set all new data as synced
-                        sBuses.Values.ToList().ForEach(b => b.synced = true);
-                        sLines.Values.ToList().ForEach(l => l.synced = true);
-                    });
-
-                    // Send unsynced local data
-                    var qb = realm.All<Bus>().Where(b => b.synced == false);
-                    var qs = realm.All<Stop>().Where(s => s.synced == false);
-                    var ql = realm.All<Line>().Where(l => l.synced == false);
-
-                    realm.Write(async () =>
-                    {
-                        // Update buses
-                        foreach (Bus bus in qb)
-                        {
-                            if (!await UpdateBus(context, bus))
-                            {
-                                Bus b = await CreateBus(context, bus);
-                                if (b.synced)
+                                foreach (JToken id in ltoken["buses"])
                                 {
-                                    bus.lineId = b.lineId;
-                                    bus.line = realm.All<Line>().Where(l => l.id == b.lineId).First();
-                                    bus.lastRefresh = b.lastRefresh;
-                                    bus.synced = true;
+                                    Bus bus = sBuses[id.ToString()];
+                                    bus.line = line;
                                 }
+                                sLines.Add(line.id, line);
                             }
-                        }
 
-                        // Update lines
-                        foreach (Line line in ql)
-                        {
-                            if (!await UpdateLine(context, line))
+                            // Sync stops
+                            foreach (JToken stoken in stops)
                             {
-                                Line l = await CreateLine(context, line);
-                                if (l.synced)
-                                {
-                                    line.name = l.name;
-                                    foreach (long sid in l.jstops)
-                                    {
-                                        var q = realm.All<Stop>().Where(s => s.id == sid);
-                                        if (q.Any())
-                                        {
-                                            Stop stop = q.First();
-                                            if (!line.stops.Contains(stop)) line.stops.Add(stop);
-                                            if (!stop.lines.Contains(line)) stop.lines.Add(line);
-                                        }
-                                    }
-                                    line.synced = true;
-                                }
-                            }
-                        }
+                                long sid = stoken[nameof(Stop.id)].ToObject<long>();
+                                var squery = realm.All<Stop>().Where(s => s.id == sid);
+                                Stop stop = squery.Any() ? squery.First() : realm.CreateObject<Stop>();
+                                Location loc = new Location("");
+                                loc.Latitude = stoken["latitude"].ToObject<double>();
+                                loc.Longitude = stoken["longitude"].ToObject<double>();
+                                if (stop.location.Latitude != loc.Latitude || stop.location.Longitude != loc.Longitude) stop.location = loc;
+                                if (!squery.Any()) stop.id = sid;
 
-                        // Update stops
-                        foreach (Stop stop in qs)
-                        {
-                            Stop s = await CreateStop(context, stop.location);
-                            if (s.synced)
-                            {
-                                stop.location = s.location;
-                                foreach (long lid in s.jlines)
+                                foreach (JToken id in stoken["lines"])
                                 {
-                                    var q = realm.All<Line>().Where(l => l.id == lid);
-                                    if (q.Any())
-                                    {
-                                        Line line = q.First();
-                                        if (!stop.lines.Contains(line)) stop.lines.Add(line);
-                                        if (!line.stops.Contains(stop)) line.stops.Add(stop);
-                                    }
+                                    Line line = sLines[id.ToObject<long>()];
+                                    if (!stop.lines.Contains(line)) stop.lines.Add(line);
+                                    if (!line.stops.Contains(stop)) line.stops.Add(stop);
                                 }
                                 stop.synced = true;
                             }
-                        }
-                    });
+
+                            // Set all new data as synced
+                            sBuses.Values.ToList().ForEach(b => b.synced = true);
+                            sLines.Values.ToList().ForEach(l => l.synced = true);
+                        });
+
+                        // Send unsynced local data
+                        var qb = realm.All<Bus>().Where(b => b.synced == false);
+                        var qs = realm.All<Stop>().Where(s => s.synced == false);
+                        var ql = realm.All<Line>().Where(l => l.synced == false);
+
+                        realm.Write(() =>
+                        {
+                            // Update buses
+                            foreach (Bus bus in qb)
+                            {
+                                if (!UpdateBus(context, bus).Result)
+                                {
+                                    Bus b = CreateBus(context, bus).Result;
+                                    if (b.synced)
+                                    {
+                                        bus.lineId = b.lineId;
+                                        bus.line = realm.All<Line>().Where(l => l.id == b.lineId).First();
+                                        bus.lastRefresh = b.lastRefresh;
+                                        bus.synced = true;
+                                    }
+                                }
+                            }
+
+                            // Update lines
+                            foreach (Line line in ql)
+                            {
+                                if (!UpdateLine(context, line).Result)
+                                {
+                                    Line l = CreateLine(context, line).Result;
+                                    if (l.synced)
+                                    {
+                                        line.name = l.name;
+                                        foreach (long sid in l.jstops)
+                                        {
+                                            var q = realm.All<Stop>().Where(s => s.id == sid);
+                                            if (q.Any())
+                                            {
+                                                Stop stop = q.First();
+                                                if (!line.stops.Contains(stop)) line.stops.Add(stop);
+                                                if (!stop.lines.Contains(line)) stop.lines.Add(line);
+                                            }
+                                        }
+                                        line.synced = true;
+                                    }
+                                }
+                            }
+
+                            // Update stops
+                            foreach (Stop stop in qs)
+                            {
+                                Stop s = CreateStop(context, stop.location).Result;
+                                if (s.synced)
+                                {
+                                    stop.location = s.location;
+                                    foreach (long lid in s.jlines)
+                                    {
+                                        var q = realm.All<Line>().Where(l => l.id == lid);
+                                        if (q.Any())
+                                        {
+                                            Line line = q.First();
+                                            if (!stop.lines.Contains(line)) stop.lines.Add(line);
+                                            if (!line.stops.Contains(stop)) line.stops.Add(stop);
+                                        }
+                                    }
+                                    stop.synced = true;
+                                }
+                            }
+                        });
+                    }
                 }
-            }
-            busy = false;
+                busy = false;
+            });
+            thread.Start();
         }
 
         /// <summary>
@@ -293,7 +297,8 @@ namespace BusTrack.Utilities
         /// <returns>The success status.</returns>
         public static async Task<bool> UploadTravel(Context context, Travel travel, CancellationTokenSource cts = null)
         {
-            var content = new StringContent(JsonConvert.SerializeObject(travel), Encoding.UTF8, "application/json");
+            string str = JsonConvert.SerializeObject(travel);
+            var content = new StringContent(str, Encoding.UTF8, "application/json");
 
             HttpResponseMessage response = await CallWebAPI("/account/addtravel", cts?.Token ?? CancellationToken.None, context, content, timeout: 10, bearer: true);
             return response.IsSuccessStatusCode;

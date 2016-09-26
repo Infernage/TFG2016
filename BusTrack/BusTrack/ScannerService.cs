@@ -129,9 +129,7 @@ namespace BusTrack
                                     editor.Apply();
 
                                     // Sync DB
-#pragma warning disable CS4014
                                     RestUtils.Sync(this);
-#pragma warning restore CS4014
                                 }
                             }
                             realm.Refresh();

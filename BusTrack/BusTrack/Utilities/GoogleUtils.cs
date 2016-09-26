@@ -42,7 +42,7 @@ namespace BusTrack.Utilities
 
             var parsed = json["rows"][0]["elements"][0];
             long distance = 0;
-            if (parsed.Contains("distance"))
+            if (parsed["distance"].ToString().Length > 0)
             {
                 distance = parsed["distance"]["value"].ToObject<long>();
             }

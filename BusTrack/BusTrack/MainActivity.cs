@@ -29,9 +29,7 @@ namespace BusTrack
                 Finish();
                 return;
             }
-#pragma warning disable CS4014
             RestUtils.Sync(this);
-#pragma warning restore CS4014
 
             // Set our view from the "main" layout resource
             SetContentView(Resource.Layout.Main);

@@ -194,43 +194,6 @@ namespace BusTrackWeb
                     }
                 }
                 context.SaveChanges();
-
-                /*User user = context.User.First();
-                Bus bus = context.Bus.Include(b => b.Line).ThenInclude(l => l.LineStops).ThenInclude(ls => ls.Stop).First();
-                Line line = bus.Line;
-                var stops = line.LineStops.ToList();
-                Stop init = stops[0].Stop, end = stops[1].Stop;
-                Travel tr = new Travel
-                {
-                    Bus = bus,
-                    date = DateTime.Now,
-                    distance = 600,
-                    End = end,
-                    Init = init,
-                    Line = line,
-                    time = 587,
-                    User = user
-                };
-                context.Travel.Add(tr);*/
-
-                /*Line line = context.Line.Single(l => l.id == 22);
-                Bus bus = new Bus
-                {
-                    lastRefresh = DateTime.UtcNow,
-                    Line = line,
-                    mac = "maaaaaaaaaaaaaaaaaaaaaaaaik"
-                };
-                line.Buses.Add(bus);*/
-
-                /*User user = new User
-                {
-                    email = "email@algo.net",
-                    hash = "sad3272iue1q98suh32",
-                    name = "nombrecito"
-                };
-                context.User.Add(user);*/
-
-                //context.SaveChanges();
             }
         }
     }
