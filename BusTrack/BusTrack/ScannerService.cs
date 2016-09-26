@@ -34,7 +34,7 @@ namespace BusTrack
                 ISharedPreferences prefs = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private);
                 try
                 {
-                    using (Realm realm = Realm.GetInstance(Utils.NAME_PREF))
+                    using (Realm realm = Realm.GetInstance(Utils.GetDB()))
                     {
                         string busAp = prefs.GetString(currentAp, null);
                         long travelId = prefs.GetLong(currentTravel, -1);
