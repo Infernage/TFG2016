@@ -13,7 +13,7 @@ namespace BusTrackWeb
     /// </summary>
     internal class Statistics
     {
-        public static readonly float POLLUTION_CAR = 119F, POLLUTION_BUS = 104F, POLLUTION_BUS_E = 18.6F;
+        public static readonly float POLLUTION_CAR = 119F, POLLUTION_BUS = 25F, POLLUTION_BUS_E = 18.6F;
 
         #region mapReduceTravelsDayWeek
 

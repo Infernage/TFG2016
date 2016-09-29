@@ -238,7 +238,7 @@ namespace BusTrack
             AlertDialog dialog;
             var builder = new AlertDialog.Builder(context);
             builder.SetView(Resource.Layout.TimeTravelOpt);
-            builder.SetTitle("Tiempo de detección de viaje");
+            builder.SetTitle("Tiempo para considerar un viaje");
             builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>)null);
             builder.SetNegativeButton("Cancelar", (o, e) => Dismiss());
 

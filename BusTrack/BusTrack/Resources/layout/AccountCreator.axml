@@ -32,4 +32,14 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/acPassF" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="50px"
+        android:id="@+id/view1" />
+    <TextView
+        android:text="¡AVISO! Al crear la cuenta, aceptas el envío de datos al servidor web para la realización de estadísticas."
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/textView4"
+        android:maxLines="10" />
 </LinearLayout>

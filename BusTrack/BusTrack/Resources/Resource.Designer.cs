@@ -1906,14 +1906,14 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b0027
 			public const int always = 2131427367;
 			
-			// aapt resource value: 0x7f0b0062
-			public const int amEmailF = 2131427426;
-			
-			// aapt resource value: 0x7f0b0061
-			public const int amNameF = 2131427425;
+			// aapt resource value: 0x7f0b0064
+			public const int amEmailF = 2131427428;
 			
 			// aapt resource value: 0x7f0b0063
-			public const int amNewPassF = 2131427427;
+			public const int amNameF = 2131427427;
+			
+			// aapt resource value: 0x7f0b0065
+			public const int amNewPassF = 2131427429;
 			
 			// aapt resource value: 0x7f0b0067
 			public const int amSign = 2131427431;
@@ -2074,8 +2074,8 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b006b
 			public const int lineF = 2131427435;
 			
-			// aapt resource value: 0x7f0b0065
-			public const int linearLayout1 = 2131427429;
+			// aapt resource value: 0x7f0b0066
+			public const int linearLayout1 = 2131427430;
 			
 			// aapt resource value: 0x7f0b006e
 			public const int linearLayout2 = 2131427438;
@@ -2293,8 +2293,8 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b005f
 			public const int textView3 = 2131427423;
 			
-			// aapt resource value: 0x7f0b0066
-			public const int textView4 = 2131427430;
+			// aapt resource value: 0x7f0b0062
+			public const int textView4 = 2131427426;
 			
 			// aapt resource value: 0x7f0b008b
 			public const int textView5 = 2131427467;
@@ -2332,8 +2332,8 @@ namespace BusTrack
 			// aapt resource value: 0x7f0b001d
 			public const int useLogo = 2131427357;
 			
-			// aapt resource value: 0x7f0b0064
-			public const int view1 = 2131427428;
+			// aapt resource value: 0x7f0b0061
+			public const int view1 = 2131427425;
 			
 			// aapt resource value: 0x7f0b00aa
 			public const int view10 = 2131427498;

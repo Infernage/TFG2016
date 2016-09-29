@@ -111,7 +111,7 @@ namespace BusTrackWeb.Controllers
                 {
                     double sub = Statistics.POLLUTION_CAR - Statistics.POLLUTION_BUS;
                     var query = context.Travel.Where(t => t.distance != 0);
-                    return query.Any() ? query.Select(t => t.distance).ToList().Aggregate(0D, (a, b) => a + (b * sub)) : 0D;
+                    return query.Any() ? query.Select(t => t.distance).ToList().Aggregate(0D, (a, b) => a + (b * sub)) / 1000F : 0D;
                 }
             });
             Task<double> pollutionEBusTask = Task.Factory.StartNew(() =>
@@ -121,7 +121,7 @@ namespace BusTrackWeb.Controllers
                 {
                     double sub = Statistics.POLLUTION_CAR - Statistics.POLLUTION_BUS_E;
                     var query = context.Travel.Where(t => t.distance != 0);
-                    return query.Any() ? query.Select(t => t.distance).ToList().Aggregate(0D, (a, b) => a + (b * sub)) : 0D;
+                    return query.Any() ? query.Select(t => t.distance).ToList().Aggregate(0D, (a, b) => a + (b * sub)) / 1000F : 0D;
                 }
             });
             Task<string> buslongestTimeLineTask = Task.Factory.StartNew(() =>
@@ -160,9 +160,16 @@ namespace BusTrackWeb.Controllers
             {
                 return new Statistics().MapReduceTravelsDayWeek();
             });
+            Task<int> userCount = Task.Factory.StartNew(() =>
+            {
+                using (var context = new TFGContext())
+                {
+                    return context.User.Where(u => u.confirmed == true).Count();
+                }
+            });
 
             // Wait for all tasks
-            await Task.WhenAll(totalTravelsTask, travelsDayTask, mostUsedLineTask, averageDurationTask, longestDurationTask, pollutionBusTask, pollutionEBusTask, buslongestTimeLineTask, averageBusRefreshTask, longestDistanceTask, averageDistanceTask, mostPopularWDayTask);
+            await Task.WhenAll(totalTravelsTask, travelsDayTask, mostUsedLineTask, averageDurationTask, longestDurationTask, pollutionBusTask, pollutionEBusTask, buslongestTimeLineTask, averageBusRefreshTask, longestDistanceTask, averageDistanceTask, mostPopularWDayTask, userCount);
 
             if (type.Equals("json"))
             {
@@ -178,21 +185,23 @@ namespace BusTrackWeb.Controllers
                 ViewData["LongesDistance"] = longestDistanceTask.Result;
                 ViewData["AverageDistance"] = averageDistanceTask.Result;
                 ViewData["MostPopularDay"] = mostPopularWDayTask.Result != -1 ? CultureInfo.InvariantCulture.DateTimeFormat.GetDayName((DayOfWeek)Enum.ToObject(typeof(DayOfWeek), mostPopularWDayTask.Result)) : "N/A";
+                ViewData["UserCount"] = userCount.Result;
             }
             else
             {
-                ViewData["Viajes totales"] = totalTravelsTask.Result.ToString() + " viajes";
+                ViewData["Viajes totales del sistema"] = totalTravelsTask.Result.ToString() + " viajes";
                 ViewData["Viajes por día"] = travelsDayTask.Result.ToString(CultureInfo.InvariantCulture) + " viajes";
                 ViewData["Línea más usada"] = mostUsedLineTask.Result != 0 ? "Línea " + mostUsedLineTask.Result.ToString() : "Ninguna";
                 ViewData["Duración media de viaje"] = (averageDurationTask.Result >= 3600 ? Math.Round(averageDurationTask.Result / 3600D).ToString(CultureInfo.InvariantCulture) : Math.Round(averageDurationTask.Result / 60D).ToString(CultureInfo.InvariantCulture)) + (averageDurationTask.Result >= 3600 ? " horas" : " minutos");
                 ViewData["Viaje más largo"] = (longestDurationTask.Result >= 3600 ? Math.Round(longestDurationTask.Result / 3600D).ToString(CultureInfo.InvariantCulture) : Math.Round(longestDurationTask.Result / 60D).ToString(CultureInfo.InvariantCulture)) + (longestDurationTask.Result >= 3600 ? " horas" : " minutos");
-                ViewData["Contaminación ahorrada (Bus normal)"] = Math.Round(pollutionBusTask.Result).ToString(CultureInfo.InvariantCulture) + "g CO2/km";
-                ViewData["Contaminación ahorrada (Bus eléctrico)"] = Math.Round(pollutionEBusTask.Result).ToString(CultureInfo.InvariantCulture) + "g CO2/km";
-                ViewData["Actualización más antigua de bus"] = buslongestTimeLineTask.Result.Length != 0 ? buslongestTimeLineTask.Result : "Ninguna";
-                ViewData["Actualización media de buses"] = averageBusRefreshTask.Result;
-                ViewData["Distancia más larga"] = longestDistanceTask.Result.ToString() + " metros";
-                ViewData["Distancia media"] = averageDistanceTask.Result.ToString(CultureInfo.InvariantCulture) + " metros";
+                ViewData["Contaminación ahorrada (Bus normal)"] = Math.Round(pollutionBusTask.Result).ToString(CultureInfo.InvariantCulture) + "kg CO2/km";
+                ViewData["Contaminación ahorrada (Bus eléctrico)"] = Math.Round(pollutionEBusTask.Result).ToString(CultureInfo.InvariantCulture) + "kg CO2/km";
+                ViewData["Autobús más antiguo"] = buslongestTimeLineTask.Result.Length != 0 ? buslongestTimeLineTask.Result : "Ninguna";
+                ViewData["Actualización media de la línea de autobús"] = averageBusRefreshTask.Result;
+                ViewData["Distancia de viaje más larga"] = longestDistanceTask.Result.ToString() + " metros";
+                ViewData["Distancia media de viaje"] = averageDistanceTask.Result.ToString(CultureInfo.InvariantCulture) + " metros";
                 ViewData["Día más popular"] = mostPopularWDayTask.Result != -1 ? new CultureInfo("es-ES").DateTimeFormat.GetDayName((DayOfWeek)Enum.ToObject(typeof(DayOfWeek), mostPopularWDayTask.Result)) : "Ninguno";
+                ViewData["Número de usuarios en el sistema"] = userCount.Result;
             }
         }
     }

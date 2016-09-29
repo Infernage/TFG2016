@@ -110,7 +110,7 @@
         android:id="@+id/view8"
         android:background="@android:color/holo_blue_bright" />
     <Button
-        android:text="Tiempo de detección de viaje"
+        android:text="Tiempo para considerar un viaje"
         android:layout_width="match_parent"
         android:layout_height="40dp"
         android:id="@+id/timeTravelButton"

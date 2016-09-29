@@ -240,7 +240,7 @@ namespace BusTrack
                 end = location.LastLocation;
             }
 
-            if (notFound && candidates[busAp].Item1.Elapsed.Seconds >= 3) end = location.LastLocation;
+            if (notFound && candidates[busAp].Item1.Elapsed.Seconds >= Utils.GetTimeTravelDetection(this)) end = location.LastLocation;
 
             travelEnd = end;
             return notFound;

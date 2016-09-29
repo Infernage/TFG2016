@@ -50,10 +50,10 @@ namespace BusTrack
             var totalTravels = InitUI("Viajes totales");
             var travelsDay = InitUI("Viajes por día");
             var mostUsedLine = InitUI("Línea más usada");
-            var averageDuration = InitUI("Duración media");
-            var longestDuration = InitUI("Duración más larga");
-            var pollutionBus = InitUI("Contaminación ahorrada (Bus normal)"); // g CO2/km
-            var pollutionEBus = InitUI("Contaminación ahorrada (Bus eléctrico)"); // g CO2/km
+            var averageDuration = InitUI("Duración media de viaje");
+            var longestDuration = InitUI("Duración más larga de viaje");
+            var pollutionBus = InitUI("Contaminación ahorrada (Bus normal)"); // kg CO2/km
+            var pollutionEBus = InitUI("Contaminación ahorrada (Bus eléctrico)"); // kg CO2/km
 
             // Request stats
             await Task.Run(async () =>
@@ -68,11 +68,13 @@ namespace BusTrack
                         {
                             totalTravels.Item2.Text = json["totalTravels"].ToString();
                             travelsDay.Item2.Text = json["travelsByDay"].ToString();
-                            mostUsedLine.Item2.Text = json["mostUsedLine"].ToString();
-                            averageDuration.Item2.Text = json["averageDuration"].ToString();
-                            longestDuration.Item2.Text = json["longestDuration"].ToString();
-                            pollutionBus.Item2.Text = json["pollutionBus"].ToString() + "g CO2/km";
-                            pollutionEBus.Item2.Text = json["pollutionElectricBus"].ToString() + "g CO2/km";
+                            mostUsedLine.Item2.Text = json["mostUsedLine"].ToObject<long>() != 0 ? "Línea " + json["mostUsedLine"].ToString() : "Ninguna";
+                            averageDuration.Item2.Text = Math.Round(json["averageDuration"].ToObject<float>() / 60, 2)
+                                .ToString() + " minutos";
+                            longestDuration.Item2.Text = Math.Round(json["longestDuration"].ToObject<float>() / 60, 2)
+                                .ToString() + " minutos";
+                            pollutionBus.Item2.Text = json["pollutionBus"].ToString() + "kg CO2/km";
+                            pollutionEBus.Item2.Text = json["pollutionElectricBus"].ToString() + "kg CO2/km";
                         });
                     }
                     catch (Exception ex)

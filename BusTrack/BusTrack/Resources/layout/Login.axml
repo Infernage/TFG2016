@@ -42,7 +42,7 @@
             android:textColor="@color/white" />
     </LinearLayout>
     <Button
-        android:text="¿Contraseña perdida?"
+        android:text="Reiniciar contraseña"
         android:id="@+id/forgotButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
