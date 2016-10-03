@@ -8,11 +8,15 @@
     <script type="text/javascript" src="~/js/bootstrap.js"></script>
     <script type="text/javascript" src="~/fusioncharts/fusioncharts.js"></script>
     <script type="text/javascript" src="~/fusioncharts/themes/fusioncharts.theme.fint.js"></script>
+    <script type="text/javascript" src="~/moment-with-locales.min.js"></script>
+    <script type="text/javascript" src="~/daterangepicker.js"></script>
+    <link rel="stylesheet" type="text/css" href="~/daterangepicker.css" />
     <script type="text/javascript">
         $(document).ready(function () {
             $.getJSON("getpiedata", function (data, status) {
                 if (status == "success") {
                     var chart = new FusionCharts({
+                        "id": "chart",
                         "type": "doughnut2d",
                         "renderAt": "piechart",
                         "width": 1000,
@@ -43,6 +47,114 @@
                 $("#piechart").slideToggle();
                 $("html, body").animate({ scrollTop: $('#piechart').offset().top + $('#piechart').height() }, 1000);
             });
+            var today = moment();
+            var week = moment().subtract(7, 'd');
+            var month = moment().subtract(1, 'M');
+            var year = moment().subtract(1, 'y');
+            var thisYear = moment().startOf('y');
+            var thisMonth = moment().startOf('M');
+            var thisWeek = moment().startOf('week');
+            var callback = function (json, status) {
+                if (status == "success") {
+                    var pieData = json['chart'];
+                    delete json['chart'];
+                    for (var key in json) {
+                        if (json.hasOwnProperty(key)) {
+                            var jq = $('#' + key);
+                            jq.html(json[key]["Value"]);
+                        }
+                    }
+                    var chart = FusionCharts('chart');
+                    chart.setJSONData({
+                        "chart": {
+                            "caption": "Viajes por línea",
+                            "startingangle": "310",
+                            "decimals": "0",
+                            "showLegend": "1",
+                            "defaultcenterlabel": "Viajes totales con línea",
+                            "centerlabel": "Número de viajes: $value",
+                            "theme": "fint"
+                        },
+                        "data": jQuery.parseJSON(pieData)
+                    });
+                }
+            }
+            $("#datefilter").daterangepicker({
+                "opens": "left",
+                "showDropdowns": true,
+                "showWeekNumbers": true,
+                "autoApply": true,
+                "startDate": today,
+                "endDate": today,
+                "ranges": {
+                    "Última semana": [
+                        week,
+                        today
+                    ],
+                    "Último mes": [
+                        month,
+                        today
+                    ],
+                    "Último año": [
+                        year,
+                        today
+                    ],
+                    "Esta semana": [
+                        thisWeek,
+                        today
+                    ],
+                    "Este mes": [
+                        thisMonth,
+                        today
+                    ],
+                    "Este año": [
+                        thisYear,
+                        today
+                    ],
+                    "Sin filtrar": []
+                },
+                "locale": {
+                    "format": "MM/DD/YYYY",
+                    "separator": " - ",
+                    "applyLabel": "Aplicar",
+                    "cancelLabel": "Cancelar",
+                    "fromLabel": "Desde",
+                    "toLabel": "A",
+                    "customRangeLabel": "Personalizado",
+                    "weekLabel": "S",
+                    "daysOfWeek": [
+                        "D",
+                        "L",
+                        "M",
+                        "X",
+                        "J",
+                        "V",
+                        "S"
+                    ],
+                    "monthNames": [
+                        "Enero",
+                        "Febrero",
+                        "Marzo",
+                        "Abril",
+                        "Mayo",
+                        "Junio",
+                        "Julio",
+                        "Agosto",
+                        "Septiembre",
+                        "Octubre",
+                        "Noviembre",
+                        "Diciembre"
+                    ],
+                    "firstDay": 1
+                }
+            },
+            function (start, end, label) {
+                if (label == 'Sin filtrar') {
+                    $.getJSON("filter", callback);
+                } else {
+                    $.getJSON("filter/" + start.toISOString() + "/" + end.toISOString(), callback);
+                }
+            });
         });
     </script>
 </head>
@@ -60,10 +172,13 @@
                 <a class="navbar-left" href="/" style="margin-right: 5px;"><img alt="BusTrack" src="~/BusTrackIcon.jpg" /></a>
             </div>
             <div id="menu" class="navbar-collapse collapse">
-                <ul class="nav navbar-nav">
+                <ul class="nav navbar-nav navb">
                     <li class="active"><a href="/"><img src="~/stats.png" /> Inicio</a></li>
                     <li><a href="https://github.com/Infernage/TFG2016"><img src="~/source.png" /> Fuente del proyecto</a></li>
                     <li><a href="https://github.com/Infernage/TFG2016/wiki"><img src="~/info.png" /> Información</a></li>
+                </ul>
+                <ul class="nav navbar-nav navbar-right" style="height: 55px">
+                    <li style="height: 100%"><button class="btn" id="datefilter" style="height: 100%; background-color: transparent; width: 100%">Filtrar por fecha</button></li>
                 </ul>
             </div>
         </div>
@@ -81,8 +196,8 @@
                 @foreach (var entry in ViewData)
                 {
                     <tr>
-                        <td>@entry.Key</td>
-                        <td>@entry.Value</td>
+                        <td>@(((KeyValuePair<string, object>)entry.Value).Key)</td>
+                        <td><span id="@entry.Key">@(((KeyValuePair<string, object>)entry.Value).Value)</span></td>
                     </tr>
                 }
             </tbody>

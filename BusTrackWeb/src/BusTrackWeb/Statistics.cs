@@ -15,6 +15,21 @@ namespace BusTrackWeb
     {
         public static readonly float POLLUTION_CAR = 119F, POLLUTION_BUS = 25F, POLLUTION_BUS_E = 18.6F;
 
+        /// <summary>
+        /// Checks whether a date is in a range between other two.
+        /// </summary>
+        /// <param name="date">The date to check.</param>
+        /// <param name="from">The lowest date. Can be null.</param>
+        /// <param name="to">The highest date. Can be null.</param>
+        /// <returns>True or false whether the date is in range between from and to. If those two dates are null, this function will return true.</returns>
+        internal static bool IsInRange(DateTime date, DateTime? from, DateTime? to)
+        {
+            if (from == null && to == null) return true;
+            else if (from == null) return date <= to;
+            else if (to == null) return date >= from;
+            else return from <= date && date <= to;
+        }
+
         #region mapReduceTravelsDayWeek
 
         private ConcurrentBag<DayOfWeek> travelWBag = null;
@@ -22,10 +37,12 @@ namespace BusTrackWeb
         private ConcurrentDictionary<DayOfWeek, int> travelWStore = null;
 
         /// <summary>
-        /// MapReduce method for get the most popular day of the week.
+        /// MapReduce method for get the most popular day of the week. Supports filtering between two ranges.
+        /// <param name="from">The lowest date. Can be null.</param>
+        /// <param name="to">The highest date. Can be null.</param>
         /// </summary>
         /// <returns>The most popular day of the wek.</returns>
-        internal int MapReduceTravelsDayWeek()
+        internal int MapReduceTravelsDayWeek(DateTime? from, DateTime? to)
         {
             if (travelWChunks == null || travelWChunks.IsAddingCompleted)
             {
@@ -36,7 +53,7 @@ namespace BusTrackWeb
 
             ThreadPool.QueueUserWorkItem((o) =>
             {
-                MapWTravels();
+                MapWTravels(from, to);
             });
 
             ReduceWTravels();
@@ -45,15 +62,17 @@ namespace BusTrackWeb
         }
 
         /// <summary>
-        /// Mapping function. Fills the blocking collection with days of the week.
+        /// Mapping function. Fills the blocking collection with days of the week. Supports filtering between two ranges.
+        /// <param name="from">The lowest date. Can be null.</param>
+        /// <param name="to">The highest date. Can be null.</param>
         /// </summary>
-        private void MapWTravels()
+        private void MapWTravels(DateTime? from, DateTime? to)
         {
             Parallel.ForEach(ProduceTravelsIDs(-1), id =>
             {
                 using (var context = new TFGContext())
                 {
-                    var query = context.Travel.Where(t => t.id == id);
+                    var query = context.Travel.Where(t => t.id == id && IsInRange(t.date, from, to));
                     if (!query.Any()) return;
 
                     Travel travel = query.First();
@@ -84,11 +103,13 @@ namespace BusTrackWeb
         private ConcurrentDictionary<DateTimeOffset, int> travelStore = null;
 
         /// <summary>
-        /// MapReduce method for get travels/day more precise.
+        /// MapReduce method for get travels/day more precise. Supports filtering between two dates.
         /// </summary>
+        /// <param name="from">The lowest date. Can be null.</param>
+        /// <param name="to">The highest date. Can be null.</param>
         /// <param name="id">The user ID or optional to indicate we want all travels.</param>
         /// <returns>The user/general travels by day.</returns>
-        internal double MapReduceTravelsByDay(long id = -1)
+        internal double MapReduceTravelsByDay(DateTime? from, DateTime? to, long id = -1)
         {
             if (travelChunks == null || travelChunks.IsAddingCompleted)
             {
@@ -99,7 +120,7 @@ namespace BusTrackWeb
 
             ThreadPool.QueueUserWorkItem((o) =>
             {
-                MapTravels(id);
+                MapTravels(id, from, to);
             });
 
             ReduceTravels();
@@ -112,16 +133,18 @@ namespace BusTrackWeb
         }
 
         /// <summary>
-        /// Mapping function. Fills the blocking collection with dates.
+        /// Mapping function. Fills the blocking collection with dates. Supports filtering between them.
         /// </summary>
         /// <param name="userId">The user ID or -1 to indicate all travels.</param>
-        private void MapTravels(long userId)
+        /// <param name="from">The lowest date. Can be null.</param>
+        /// <param name="to">The highest date. Can be null.</param>
+        private void MapTravels(long userId, DateTime? from, DateTime? to)
         {
             Parallel.ForEach(ProduceTravelsIDs(userId), id =>
             {
                 using (var context = new TFGContext())
                 {
-                    var query = context.Travel.Where(t => t.id == id);
+                    var query = context.Travel.Where(t => t.id == id && IsInRange(t.date, from, to));
                     if (!query.Any()) return;
 
                     Travel travel = query.First();
@@ -143,6 +166,8 @@ namespace BusTrackWeb
             });
         }
 
+        #endregion mapReduceTravelsByDay
+
         /// <summary>
         /// Source of mapping function.
         /// </summary>
@@ -160,7 +185,5 @@ namespace BusTrackWeb
                 }
             }
         }
-
-        #endregion mapReduceTravelsByDay
     }
 }

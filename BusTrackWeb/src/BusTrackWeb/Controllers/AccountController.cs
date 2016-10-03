@@ -290,7 +290,7 @@ namespace BusTrackWeb.Controllers
 
         [HttpPost]
         [Authorize]
-        public async Task<ActionResult> GetStatistics([FromForm] long id)
+        public async Task<ActionResult> GetStatistics([FromForm] long id, [FromForm] DateTime? from = null, [FromForm] DateTime? to = null)
         {
             using (var context = new TFGContext())
             {
@@ -305,13 +305,13 @@ namespace BusTrackWeb.Controllers
                 using (var context = new TFGContext())
                 {
                     User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
-                    return user.Travels.Count;
+                    return user.Travels.Where(t => Statistics.IsInRange(t.date, from, to)).Count();
                 }
             });
             Task<double> travelsDayTask = Task.Factory.StartNew(() =>
             {
                 // Travels by day
-                return new Statistics().MapReduceTravelsByDay(id);
+                return new Statistics().MapReduceTravelsByDay(from, to, id);
             });
             Task<long> mostUsedLineTask = Task.Factory.StartNew(() =>
             {
@@ -319,7 +319,7 @@ namespace BusTrackWeb.Controllers
                 using (var context = new TFGContext())
                 {
                     User user = context.User.Include(u => u.Travels).ThenInclude(t => t.Line).Where(u => u.id == id).First();
-                    var query = user.Travels.Where(t => t.Line != null).GroupBy(t => t.lineId).OrderByDescending(l => l.Count());
+                    var query = user.Travels.Where(t => t.Line != null && Statistics.IsInRange(t.date, from, to)).GroupBy(t => t.lineId).OrderByDescending(l => l.Count());
                     return query.Any() ? query.First().Key : 0L;
                 }
             });
@@ -329,7 +329,7 @@ namespace BusTrackWeb.Controllers
                 using (var context = new TFGContext())
                 {
                     User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
-                    var query = user.Travels.Select(t => t.time);
+                    var query = user.Travels.Where(t => Statistics.IsInRange(t.date, from, to)).Select(t => t.time);
                     return query.Any() ? query.Average() : 0;
                 }
             });
@@ -339,7 +339,7 @@ namespace BusTrackWeb.Controllers
                 using (var context = new TFGContext())
                 {
                     User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
-                    var query = user.Travels.Select(t => t.time);
+                    var query = user.Travels.Where(t => Statistics.IsInRange(t.date, from, to)).Select(t => t.time);
                     return query.Any() ? query.Max() : 0;
                 }
             });
@@ -350,7 +350,7 @@ namespace BusTrackWeb.Controllers
                 {
                     User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
                     double sub = Statistics.POLLUTION_CAR - Statistics.POLLUTION_BUS;
-                    var query = user.Travels.Where(t => t.distance != 0);
+                    var query = user.Travels.Where(t => t.distance != 0 && Statistics.IsInRange(t.date, from, to));
                     return query.Any() ? query.Select(t => t.distance).Aggregate(0D, (a, b) => a + (b * sub)) / 1000F : 0;
                 }
             });
@@ -361,7 +361,7 @@ namespace BusTrackWeb.Controllers
                 {
                     User user = context.User.Include(u => u.Travels).Where(u => u.id == id).First();
                     double sub = Statistics.POLLUTION_CAR - Statistics.POLLUTION_BUS_E;
-                    var query = user.Travels.Where(t => t.distance != 0);
+                    var query = user.Travels.Where(t => t.distance != 0 && Statistics.IsInRange(t.date, from, to));
                     return query.Any() ? query.Select(t => t.distance).Aggregate(0D, (a, b) => a + (b * sub)) / 1000F : 0;
                 }
             });
