@@ -4,6 +4,7 @@ using Newtonsoft.Json.Linq;
 using Realms;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
@@ -14,20 +15,24 @@ namespace BusTrack.Utilities
     public class AccountUtils
     {
         /// <summary>
-        /// Gets the user statistics from the server.
+        /// Gets the user statistics from the server. Supports filtering.
         /// </summary>
         /// <param name="context">Android context.</param>
         /// <param name="ct">The cancellation token used for cancel the operation.</param>
+        /// <param name="from">The lowest value of the range filter. Can be null.</param>
+        /// <param name="to">The highest value of the range filter. Can be null.</param>
         /// <returns>A JSON string with the user statistics or an empty one if something went wrong.</returns>
-        public async static Task<string> GetStatistics(Context context, CancellationToken ct)
+        public async static Task<string> GetStatistics(Context context, CancellationToken ct, DateTime? from, DateTime? to)
         {
             ISharedPreferences prefs = context.GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private);
             long id = prefs.GetLong(Utils.PREF_USER_ID, -1);
 
-            var content = new FormUrlEncodedContent(new[]
-            {
-                new KeyValuePair<string, string>("id", id.ToString())
-            });
+            List<KeyValuePair<string, string>> collection = new List<KeyValuePair<string, string>>();
+            collection.Add(new KeyValuePair<string, string>("id", id.ToString()));
+            if (from != null) collection.Add(new KeyValuePair<string, string>("from", from.Value.ToString(CultureInfo.InvariantCulture)));
+            if (to != null) collection.Add(new KeyValuePair<string, string>("to", to.Value.ToString(CultureInfo.InvariantCulture)));
+
+            var content = new FormUrlEncodedContent(collection);
             HttpResponseMessage response = await RestUtils.CallWebAPI("/account/getstatistics", ct, context, content, bearer: true);
             return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync() : string.Empty;
         }
