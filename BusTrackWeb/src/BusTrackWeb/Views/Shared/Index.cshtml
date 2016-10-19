@@ -13,6 +13,7 @@
     <link rel="stylesheet" type="text/css" href="~/daterangepicker.css" />
     <script type="text/javascript">
         $(document).ready(function () {
+            var jsonData = "";
             $.getJSON("getpiedata", function (data, status) {
                 if (status == "success") {
                     var chart = new FusionCharts({
@@ -44,7 +45,12 @@
                 e.preventDefault();
                 if ($("#piechart").is(":visible")) $(".flip").html($(".flip").html().replace("Ocultar", "Mostrar"));
                 else $(".flip").html($(".flip").html().replace("Mostrar", "Ocultar"));
-                $("#piechart").slideToggle();
+                $("#piechart").slideToggle(400, function () {
+                    if ($("#piechart").is(":visible") && jsonData != "") {
+                        FusionCharts('chart').setJSONData(jsonData);
+                        jsonData = "";
+                    }
+                });
                 $("html, body").animate({ scrollTop: $('#piechart').offset().top + $('#piechart').height() }, 1000);
             });
             var today = moment();
@@ -64,8 +70,7 @@
                             jq.html(json[key]["Value"]);
                         }
                     }
-                    var chart = FusionCharts('chart');
-                    chart.setJSONData({
+                    jsonData = {
                         "chart": {
                             "caption": "Viajes por línea",
                             "startingangle": "310",
@@ -76,7 +81,9 @@
                             "theme": "fint"
                         },
                         "data": jQuery.parseJSON(pieData)
-                    });
+                    };
+                    var chart = FusionCharts('chart');
+                    chart.setJSONData(jsonData);
                 }
             }
             $("#datefilter").daterangepicker({
