@@ -3,6 +3,7 @@ using Android.Content;
 using Android.Graphics;
 using Android.Net.Wifi;
 using Android.OS;
+using Android.Util;
 using Android.Views;
 using Android.Widget;
 using BusTrack.Data;
@@ -155,88 +156,96 @@ namespace BusTrack
         {
             if (travel == -1) return base.OnCreateDialog(savedInstanceState);
 
-            using (Realm realm = Realm.GetInstance(Utils.GetDB()))
+            try
             {
-                // Get objects from DB
-                Travel t = realm.All<Travel>().Where(tr => tr.id == travel).First();
-                List<Line> realmLines = new List<Line>();
-                foreach (int l in lines)
+                using (Realm realm = Realm.GetInstance(Utils.GetDB()))
                 {
-                    var results = from li in realm.All<Line>() where li.id == l select li;
-                    realmLines.Add(results.First());
-                }
+                    // Get objects from DB
+                    Travel t = realm.All<Travel>().Where(tr => tr.id == travel).First();
+                    List<Line> realmLines = new List<Line>();
+                    foreach (int l in lines)
+                    {
+                        var results = from li in realm.All<Line>() where li.id == l select li;
+                        realmLines.Add(results.First());
+                    }
 
-                // Create dialog
-                AlertDialog dialog = null;
-                var builder = new AlertDialog.Builder(Activity);
-                builder.SetView(Resource.Layout.LineChooser);
-                builder.SetMessage("Línea tomada");
-                builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>)null);
+                    // Create dialog
+                    AlertDialog dialog = null;
+                    var builder = new AlertDialog.Builder(Activity);
+                    builder.SetView(Resource.Layout.LineChooser);
+                    builder.SetMessage("Línea tomada");
+                    builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>)null);
 
-                dialog = builder.Create();
-                dialog.Show();
+                    dialog = builder.Create();
+                    dialog.Show();
 
-                Button accept = dialog.GetButton((int)DialogButtonType.Positive);
-                accept.Click += (o, e) =>
-                {
-                    // Get line from radio button
-                    Line line = null;
+                    Button accept = dialog.GetButton((int)DialogButtonType.Positive);
+                    accept.Click += (o, e) =>
+                    {
+                        // Get line from radio button
+                        Line line = null;
+                        foreach (Line l in realmLines)
+                        {
+                            RadioButton radio = dialog.FindViewById<RadioButton>((int)l.id);
+                            if (radio.Checked)
+                            {
+                                line = l;
+                                break;
+                            }
+                        }
+
+                        // Update travel with line selected
+                        if (line != null)
+                        {
+                            realm.Write(() =>
+                            {
+                                t.line = line;
+
+                                if ((t.bus.line != null && t.bus.line.id != t.line.id) || (t.bus.line == null))
+                                {
+                                    t.bus.line = t.line;
+                                    t.bus.lineId = t.line.id;
+                                    t.bus.lastRefresh = DateTimeOffset.Now;
+                                    if (RestUtils.UpdateBus(activity, t.bus).Result) t.bus.synced = true;
+                                }
+
+                                if (t.init != null)
+                                {
+                                    if (!t.init.lines.Contains(line) || !line.stops.Contains(t.init)) RestUtils.UpdateLineStop(activity, line, t.init).Wait();
+                                    if (!t.init.lines.Contains(line)) t.init.lines.Add(line);
+                                    if (!line.stops.Contains(t.init)) line.stops.Add(t.init);
+                                }
+
+                                if (t.end != null)
+                                {
+                                    if (!t.end.lines.Contains(line) || !line.stops.Contains(t.end)) RestUtils.UpdateLineStop(activity, line, t.end).Wait();
+                                    if (!t.end.lines.Contains(line)) t.end.lines.Add(line);
+                                    if (!line.stops.Contains(t.end)) line.stops.Add(t.end);
+                                }
+                            });
+                            Dismiss();
+                            activity.Finish();
+                        }
+                    };
+
+                    // Set radio buttons
+                    RadioGroup group = dialog.FindViewById<RadioGroup>(Resource.Id.radioGroup1);
                     foreach (Line l in realmLines)
                     {
-                        RadioButton radio = dialog.FindViewById<RadioButton>((int)l.id);
-                        if (radio.Checked)
-                        {
-                            line = l;
-                            break;
-                        }
+                        RadioButton button = new RadioButton(Activity);
+                        button.LayoutParameters = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
+                        button.SetText(l.id.ToString() + " - " + l.name, TextView.BufferType.Normal);
+                        button.Id = (int)l.id;
+                        group.AddView(button);
                     }
 
-                    // Update travel with line selected
-                    if (line != null)
-                    {
-                        realm.Write(() =>
-                        {
-                            t.line = line;
-
-                            if ((t.bus.line != null && t.bus.line.id != t.line.id) || (t.bus.line == null))
-                            {
-                                t.bus.line = t.line;
-                                t.bus.lineId = t.line.id;
-                                t.bus.lastRefresh = DateTimeOffset.Now;
-                                if (RestUtils.UpdateBus(activity, t.bus).Result) t.bus.synced = true;
-                            }
-
-                            if (t.init != null)
-                            {
-                                if (!t.init.lines.Contains(line) || !line.stops.Contains(t.init)) RestUtils.UpdateLineStop(activity, line, t.init).Wait();
-                                if (!t.init.lines.Contains(line)) t.init.lines.Add(line);
-                                if (!line.stops.Contains(t.init)) line.stops.Add(t.init);
-                            }
-
-                            if (t.end != null)
-                            {
-                                if (!t.end.lines.Contains(line) || !line.stops.Contains(t.end)) RestUtils.UpdateLineStop(activity, line, t.end).Wait();
-                                if (!t.end.lines.Contains(line)) t.end.lines.Add(line);
-                                if (!line.stops.Contains(t.end)) line.stops.Add(t.end);
-                            }
-                        });
-                        Dismiss();
-                        activity.Finish();
-                    }
-                };
-
-                // Set radio buttons
-                RadioGroup group = dialog.FindViewById<RadioGroup>(Resource.Id.radioGroup1);
-                foreach (Line l in realmLines)
-                {
-                    RadioButton button = new RadioButton(Activity);
-                    button.LayoutParameters = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
-                    button.SetText(l.id.ToString() + " - " + l.name, TextView.BufferType.Normal);
-                    button.Id = (int)l.id;
-                    group.AddView(button);
+                    return dialog;
                 }
-
-                return dialog;
+            } catch (Exception e)
+            {
+                Toast.MakeText(activity, e.Message, ToastLength.Long).Show();
+                Log.Error("Realm", Java.Lang.Throwable.FromException(e), e.Message);
+                return base.OnCreateDialog(savedInstanceState);
             }
         }
     }
@@ -264,78 +273,86 @@ namespace BusTrack
         {
             if (travel == -1) return base.OnCreateDialog(savedInstanceState);
 
-            using (Realm realm = Realm.GetInstance(Utils.GetDB()))
+            try
             {
-                Travel t = realm.All<Travel>().Where(tr => tr.id == travel).First();
-
-                // Create dialog
-                AlertDialog dialog = null;
-                var builder = new AlertDialog.Builder(Activity);
-                builder.SetView(Resource.Layout.LineCreator);
-                builder.SetMessage("Línea tomada");
-                builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>)null);
-
-                dialog = builder.Create();
-                dialog.Show();
-
-                Button accept = dialog.GetButton((int)DialogButtonType.Positive);
-                accept.Click += async (o, e) =>
+                using (Realm realm = Realm.GetInstance(Utils.GetDB()))
                 {
-                    EditText number = dialog.FindViewById<EditText>(Resource.Id.editText1), name = dialog.FindViewById<EditText>(Resource.Id.editText2);
+                    Travel t = realm.All<Travel>().Where(tr => tr.id == travel).First();
 
-                    // Check if the user has entered at least 1 character
-                    if (name.Text.Length != 0)
+                    // Create dialog
+                    AlertDialog dialog = null;
+                    var builder = new AlertDialog.Builder(Activity);
+                    builder.SetView(Resource.Layout.LineCreator);
+                    builder.SetMessage("Línea tomada");
+                    builder.SetPositiveButton("Aceptar", (EventHandler<DialogClickEventArgs>)null);
+
+                    dialog = builder.Create();
+                    dialog.Show();
+
+                    Button accept = dialog.GetButton((int)DialogButtonType.Positive);
+                    accept.Click += async (o, e) =>
                     {
-                        // Parse line number (if exists)
-                        int lineNumber = -1;
-                        int.TryParse(number.Text, out lineNumber);
+                        EditText number = dialog.FindViewById<EditText>(Resource.Id.editText1), name = dialog.FindViewById<EditText>(Resource.Id.editText2);
 
-                        await realm.WriteAsync(async (r) =>
+                        // Check if the user has entered at least 1 character
+                        if (name.Text.Length != 0)
                         {
-                            var lines = r.All<Line>().Where(l => l.id == lineNumber);
+                            // Parse line number (if exists)
+                            int lineNumber = -1;
+                            int.TryParse(number.Text, out lineNumber);
 
-                            Line line = lines.Any() ? lines.First() : await RestUtils.CreateLine(activity, new Line { id = lineNumber, name = name.Text });
-                            if (!lines.Any())
+                            await realm.WriteAsync(async (r) =>
                             {
-                                if (lineNumber != -1) line.id = lineNumber;
-                                else line.GenerateID(r);
-                                r.Manage(line);
-                            }
-                            if (!line.name.Equals(name.Text))
-                            {
-                                line.name = name.Text;
-                                if (RestUtils.UpdateLine(activity, line).Result) line.synced = true;
-                            }
-                            t.line = line;
+                                var lines = r.All<Line>().Where(l => l.id == lineNumber);
 
-                            if ((t.bus.line != null && t.bus.line.id != t.line.id) || (t.bus.line == null))
-                            {
-                                t.bus.line = t.line;
-                                t.bus.lineId = t.line.id;
-                                t.bus.lastRefresh = DateTimeOffset.Now;
-                                if (RestUtils.UpdateBus(activity, t.bus).Result) t.bus.synced = true;
-                            }
+                                Line line = lines.Any() ? lines.First() : await RestUtils.CreateLine(activity, new Line { id = lineNumber, name = name.Text });
+                                if (!lines.Any())
+                                {
+                                    if (lineNumber != -1) line.id = lineNumber;
+                                    else line.GenerateID(r);
+                                    r.Manage(line);
+                                }
+                                if (!line.name.Equals(name.Text))
+                                {
+                                    line.name = name.Text;
+                                    if (RestUtils.UpdateLine(activity, line).Result) line.synced = true;
+                                }
+                                t.line = line;
 
-                            if (t.init != null)
-                            {
-                                if (!t.init.lines.Contains(line) || !line.stops.Contains(t.init)) RestUtils.UpdateLineStop(activity, line, t.init).Wait();
-                                if (!t.init.lines.Contains(line)) t.init.lines.Add(line);
-                                if (!line.stops.Contains(t.init)) line.stops.Add(t.init);
-                            }
+                                if ((t.bus.line != null && t.bus.line.id != t.line.id) || (t.bus.line == null))
+                                {
+                                    t.bus.line = t.line;
+                                    t.bus.lineId = t.line.id;
+                                    t.bus.lastRefresh = DateTimeOffset.Now;
+                                    if (RestUtils.UpdateBus(activity, t.bus).Result) t.bus.synced = true;
+                                }
 
-                            if (t.end != null)
-                            {
-                                if (!t.end.lines.Contains(line) || !line.stops.Contains(t.end)) RestUtils.UpdateLineStop(activity, line, t.end).Wait();
-                                if (!t.end.lines.Contains(line)) t.end.lines.Add(line);
-                                if (!line.stops.Contains(t.end)) line.stops.Add(t.end);
-                            }
-                        });
-                        dialog.Dismiss();
-                        activity.Finish();
-                    }
-                };
+                                if (t.init != null)
+                                {
+                                    if (!t.init.lines.Contains(line) || !line.stops.Contains(t.init)) RestUtils.UpdateLineStop(activity, line, t.init).Wait();
+                                    if (!t.init.lines.Contains(line)) t.init.lines.Add(line);
+                                    if (!line.stops.Contains(t.init)) line.stops.Add(t.init);
+                                }
 
-                return dialog;
+                                if (t.end != null)
+                                {
+                                    if (!t.end.lines.Contains(line) || !line.stops.Contains(t.end)) RestUtils.UpdateLineStop(activity, line, t.end).Wait();
+                                    if (!t.end.lines.Contains(line)) t.end.lines.Add(line);
+                                    if (!line.stops.Contains(t.end)) line.stops.Add(t.end);
+                                }
+                            });
+                            dialog.Dismiss();
+                            activity.Finish();
+                        }
+                    };
+
+                    return dialog;
+                }
+            } catch (Exception e)
+            {
+                Toast.MakeText(activity, e.Message, ToastLength.Long).Show();
+                Log.Error("Realm", Java.Lang.Throwable.FromException(e), e.Message);
+                return base.OnCreateDialog(savedInstanceState);
             }
         }
     }

@@ -48,24 +48,31 @@ namespace BusTrack
                 });
                 alert.SetPositiveButton("Aceptar", (ob, ev) =>
                 {
-                    using (Realm realm = Realm.GetInstance(Utils.GetDB()))
+                    try
                     {
-                        int userId = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private).GetInt(Utils.PREF_USER_ID, -1);
-                        if (userId == -1)
+                        using (Realm realm = Realm.GetInstance(Utils.GetDB()))
                         {
-                            OAuthUtils.Logout(this);
-                            Toast.MakeText(this, "Error: ID de usuario no encontrada", ToastLength.Long).Show();
-                            dialog.Dismiss();
-                            return;
-                        }
+                            int userId = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private).GetInt(Utils.PREF_USER_ID, -1);
+                            if (userId == -1)
+                            {
+                                OAuthUtils.Logout(this);
+                                Toast.MakeText(this, "Error: ID de usuario no encontrada", ToastLength.Long).Show();
+                                dialog.Dismiss();
+                                return;
+                            }
 
-                        var travels = from t in realm.All<Travel>() where t.userId == userId select t;
-                        realm.Write(() =>
-                        {
-                            realm.RemoveRange(travels as RealmResults<Travel>);
-                        });
+                            var travels = from t in realm.All<Travel>() where t.userId == userId select t;
+                            realm.Write(() =>
+                            {
+                                realm.RemoveRange(travels as RealmResults<Travel>);
+                            });
+                        }
+                        dialog.Dismiss();
+                    } catch (Exception ex)
+                    {
+                        Log.Error("Realm", Java.Lang.Throwable.FromException(ex), ex.Message);
+                        Toast.MakeText(this, "Error en la base de datos: " + ex.Message, ToastLength.Long).Show();
                     }
-                    dialog.Dismiss();
                 });
                 dialog = alert.Create();
                 dialog.Show();
@@ -177,43 +184,54 @@ namespace BusTrack
         private void Sync(CancellationTokenSource cts = null, ProgressDialog dialog = null)
         {
             syncing = true;
-            using (Realm realm = Realm.GetInstance(Utils.GetDB()))
+            try
             {
-                var query = realm.All<Travel>().Where(t => t.synced == false);
-                int total = query.Count();
-                RunOnUiThread(() =>
+                using (Realm realm = Realm.GetInstance(Utils.GetDB()))
                 {
-                    if (dialog != null) dialog.Max = total;
-                });
-
-                int progress = 0, failed = 0;
-
-                foreach (Travel travel in query)
-                {
-                    if (cts.IsCancellationRequested)
-                    {
-                        if (dialog != null) dialog.Dismiss();
-                        goto finish;
-                    }
-                    if (RestUtils.UploadTravel(this, travel, cts).Result)
-                    {
-                        realm.Write(() => travel.synced = true);
-                        progress++;
-                        RunOnUiThread(() =>
-                        {
-                            if (dialog != null) dialog.Progress = progress;
-                        });
-                    }
-                    else failed++;
-                }
-                if (dialog != null)
-                {
+                    var query = realm.All<Travel>().Where(t => t.synced == false);
+                    int total = query.Count();
                     RunOnUiThread(() =>
                     {
-                        dialog.Dismiss();
-                        Toast.MakeText(this, string.Format("Enviados: {0}, Fallidos: {1}, Totales: {2}", progress, failed, total), ToastLength.Long).Show();
+                        if (dialog != null) dialog.Max = total;
                     });
+
+                    int progress = 0, failed = 0;
+
+                    foreach (Travel travel in query)
+                    {
+                        if (cts.IsCancellationRequested)
+                        {
+                            if (dialog != null) dialog.Dismiss();
+                            goto finish;
+                        }
+                        if (RestUtils.UploadTravel(this, travel, cts).Result)
+                        {
+                            realm.Write(() => travel.synced = true);
+                            progress++;
+                            RunOnUiThread(() =>
+                            {
+                                if (dialog != null) dialog.Progress = progress;
+                            });
+                        }
+                        else failed++;
+                    }
+                    if (dialog != null)
+                    {
+                        RunOnUiThread(() =>
+                        {
+                            dialog.Dismiss();
+                            Toast.MakeText(this, string.Format("Enviados: {0}, Fallidos: {1}, Totales: {2}", progress, failed, total), ToastLength.Long).Show();
+                        });
+                    }
                 }
+            } catch (Exception e)
+            {
+                Log.Error("Synchronization", Java.Lang.Throwable.FromException(e), "Synchronization with server failed!");
+                RunOnUiThread(() =>
+                {
+                    dialog.Dismiss();
+                    Toast.MakeText(this, "Fallo en la sincronización: " + e.Message, ToastLength.Long).Show();
+                });
             }
 
             finish:

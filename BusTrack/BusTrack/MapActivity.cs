@@ -4,6 +4,7 @@ using Android.Gms.Maps;
 using Android.Gms.Maps.Model;
 using Android.Locations;
 using Android.OS;
+using Android.Util;
 using Android.Views;
 using Android.Widget;
 using BusTrack.Data;
@@ -56,68 +57,82 @@ namespace BusTrack
 
             FindViewById<Button>(Resource.Id.detButton).Click += ShowDetails;
 
-            using (Realm realm = Realm.GetInstance(Utils.GetDB()))
+            try
             {
-                long id = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private).GetLong(Utils.PREF_USER_ID, -1);
-                var query = realm.All<Travel>().Where(t => t.userId == id);
-                query = query.OrderByDescending(t => t.date);
-
-                // No trips in our DB associated with the user... RIP
-                if (!query.Any())
+                using (Realm realm = Realm.GetInstance(Utils.GetDB()))
                 {
-                    TextView text = new TextView(this);
-                    text.Text = "No existen viajes recientes";
-                    layout.AddView(text);
-                    return;
-                }
+                    long id = GetSharedPreferences(Utils.NAME_PREF, FileCreationMode.Private).GetLong(Utils.PREF_USER_ID, -1);
+                    var query = realm.All<Travel>().Where(t => t.userId == id);
+                    query = query.OrderByDescending(t => t.date);
 
-                int n = 10; // Max trips!
-                foreach (Travel travel in query)
-                {
-                    if (travel.end == null && travel.time == 0) continue; // Unfinished travel
-
-                    long tid = travel.id;
-                    Location init = travel.init.location, end = travel.end.location;
-
-                    Button button = new Button(this);
-                    button.Text = travel.date.ToString("G", CultureInfo.CurrentCulture.DateTimeFormat);
-                    button.Click += async (o, e) =>
+                    // No trips in our DB associated with the user... RIP
+                    if (!query.Any())
                     {
-                        selected = tid;
+                        TextView text = new TextView(this);
+                        text.Text = "No existen viajes recientes";
+                        layout.AddView(text);
+                        return;
+                    }
 
-                        if (cache.ContainsKey(tid)) Update(cache[tid]); // Already cached, not needed to send a request
-                        else
+                    int n = 10; // Max trips!
+                    foreach (Travel travel in query)
+                    {
+                        if (travel.end == null && travel.time == 0) continue; // Unfinished travel
+
+                        long tid = travel.id;
+                        Location init = travel.init.location, end = travel.end.location;
+
+                        Button button = new Button(this);
+                        button.Text = travel.date.ToString("G", CultureInfo.CurrentCulture.DateTimeFormat);
+                        button.Click += async (o, e) =>
                         {
-                            button.Enabled = false;
-                            await Task.Run(() =>
+                            selected = tid;
+
+                            if (cache.ContainsKey(tid)) Update(cache[tid]); // Already cached, not needed to send a request
+                            else
                             {
-                                // Do this in a separate thread (Web request)
-                                using (Realm realmClick = Realm.GetInstance(Utils.GetDB()))
+                                button.Enabled = false;
+                                await Task.Run(() =>
                                 {
-                                    PolylineOptions opts = GoogleUtils.GetRoute(realmClick.All<Travel>().Where(t => t.id == tid).First());
-                                    RunOnUiThread(() => // Modify UI, do it in the correct thread
+                                    try
                                     {
-                                        button.Enabled = true;
-                                        Data d = new Data
+                                        // Do this in a separate thread (Web request)
+                                        using (Realm realmClick = Realm.GetInstance(Utils.GetDB()))
                                         {
-                                            opts = opts,
-                                            end = end,
-                                            init = init
-                                        };
-                                        cache.Add(tid, d);
-                                        Update(d);
-                                    });
-                                }
-                            });
-                        }
-                    };
+                                            PolylineOptions opts = GoogleUtils.GetRoute(realmClick.All<Travel>().Where(t => t.id == tid).First());
+                                            RunOnUiThread(() => // Modify UI, do it in the correct thread
+                                            {
+                                                button.Enabled = true;
+                                                Data d = new Data
+                                                {
+                                                    opts = opts,
+                                                    end = end,
+                                                    init = init
+                                                };
+                                                cache.Add(tid, d);
+                                                Update(d);
+                                            });
+                                        }
+                                    } catch (Exception ex)
+                                    {
+                                        Log.Error("Route", Java.Lang.Throwable.FromException(ex), ex.Message);
+                                        RunOnUiThread(() => Toast.MakeText(this, "Error al cargar la ruta: " + ex.Message, ToastLength.Long).Show());
+                                    }
+                                });
+                            }
+                        };
 
-                    // Don't forget to add the button
-                    layout.AddView(button);
+                        // Don't forget to add the button
+                        layout.AddView(button);
 
-                    // No more trips!
-                    if (n-- == 0) break;
+                        // No more trips!
+                        if (n-- == 0) break;
+                    }
                 }
+            } catch (Exception e)
+            {
+                Log.Error("Realm", Java.Lang.Throwable.FromException(e), e.Message);
+                Toast.MakeText(this, "Error en la base de datos: " + e.Message, ToastLength.Long).Show();
             }
         }
 
@@ -207,31 +222,39 @@ namespace BusTrack
         {
             if (travel == -1) return base.OnCreateDialog(savedInstanceState);
 
-            using (Realm realm = Realm.GetInstance(Utils.GetDB()))
+            try
             {
-                Travel t = realm.All<Travel>().Where(tr => tr.id == travel).First();
+                using (Realm realm = Realm.GetInstance(Utils.GetDB()))
+                {
+                    Travel t = realm.All<Travel>().Where(tr => tr.id == travel).First();
 
-                // Create dialog
-                AlertDialog dialog = null;
-                var builder = new AlertDialog.Builder(Activity);
-                builder.SetView(Resource.Layout.DetailsLayout);
-                builder.SetPositiveButton("Aceptar", (o, e) => dialog.Dismiss());
+                    // Create dialog
+                    AlertDialog dialog = null;
+                    var builder = new AlertDialog.Builder(Activity);
+                    builder.SetView(Resource.Layout.DetailsLayout);
+                    builder.SetPositiveButton("Aceptar", (o, e) => dialog.Dismiss());
 
-                dialog = builder.Create();
-                dialog.Show();
+                    dialog = builder.Create();
+                    dialog.Show();
 
-                EditText distance = dialog.FindViewById<EditText>(Resource.Id.distanceF),
-                    duration = dialog.FindViewById<EditText>(Resource.Id.durationF),
-                    date = dialog.FindViewById<EditText>(Resource.Id.dateF),
-                    line = dialog.FindViewById<EditText>(Resource.Id.lineF);
+                    EditText distance = dialog.FindViewById<EditText>(Resource.Id.distanceF),
+                        duration = dialog.FindViewById<EditText>(Resource.Id.durationF),
+                        date = dialog.FindViewById<EditText>(Resource.Id.dateF),
+                        line = dialog.FindViewById<EditText>(Resource.Id.lineF);
 
-                // Update UI
-                distance.Text = (t.distance >= 1000 ? Math.Round(t.distance / 1000F, 2) : t.distance).ToString() + (t.distance >= 1000 ? " Km" : " metros");
-                duration.Text = (t.time >= 3600 ? Math.Round(t.time / 3600F, 2) : Math.Round(t.time / 60F, 2)).ToString() + (t.time >= 3600 ? " horas" : " minutos");
-                date.Text = t.date.ToString("F", CultureInfo.CurrentCulture);
-                line.Text = t.line.id + " " + t.line.name;
+                    // Update UI
+                    distance.Text = (t.distance >= 1000 ? Math.Round(t.distance / 1000F, 2) : t.distance).ToString() + (t.distance >= 1000 ? " Km" : " metros");
+                    duration.Text = (t.time >= 3600 ? Math.Round(t.time / 3600F, 2) : Math.Round(t.time / 60F, 2)).ToString() + (t.time >= 3600 ? " horas" : " minutos");
+                    date.Text = t.date.ToString("F", CultureInfo.CurrentCulture);
+                    line.Text = t.line.id + " " + t.line.name;
 
-                return dialog;
+                    return dialog;
+                }
+            } catch (Exception e)
+            {
+                Log.Error("Realm", Java.Lang.Throwable.FromException(e), e.Message);
+                Toast.MakeText(context, "Error en la base de datos: " + e.Message, ToastLength.Long).Show();
+                return base.OnCreateDialog(savedInstanceState);
             }
         }
     }
